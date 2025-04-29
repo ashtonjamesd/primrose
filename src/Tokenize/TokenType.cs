@@ -6,6 +6,9 @@ internal enum TokenType {
     Table,
     Database,
     Use,
+    Insert,
+    Into,
+    Values,
 
     Varchar,
     Integer,

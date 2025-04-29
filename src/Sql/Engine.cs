@@ -4,9 +4,7 @@ using Primrose.src.Tokenize;
 namespace Primrose.src.Sql;
 
 internal sealed class SqlEngine {
-    private SqlDatabase? Database { get; set; }
-    private readonly List<SqlDatabase> Databases = [];
-    
+    private readonly EngineController controller = new();
     private readonly bool IsDebug;
 
     public void ExecuteQuery(string query) {
@@ -37,15 +35,15 @@ internal sealed class SqlEngine {
             _ when stmt is UseDatabaseStatement x => ExecUseDatabase(x),
             _ when stmt is CreateDatabaseStatement x => ExecCreateDatabase(x),
             _ when stmt is DropDatabaseStatement x => ExecDropDatabase(x),
-            _ => UnknownQuery()
+            _ => controller.UnknownQuery()
         };
     }
 
     private QueryResult ExecCreateTable(CreateTableStatement createTable) {
-        var err = CheckDatabase();
-        if (!CheckDatabase().IsSuccess) return err;
+        var err = controller.CheckDatabase();
+        if (!err.IsSuccess) return err;
 
-        var existingTable = GetTable(createTable.TableName);
+        var existingTable = controller.GetTable(createTable.TableName);
         if (existingTable is not null) {
             return QueryResult.Err($"Table '{createTable.TableName}' already exists.");
         }
@@ -56,38 +54,38 @@ internal sealed class SqlEngine {
             Rows = []
         };
 
-        CreateTable(table);
+        controller.CreateTable(table);
 
         return QueryResult.Ok();
     }
 
     private QueryResult ExecDropTable(DropTableStatement dropTable) {
-        var err = CheckDatabase();
+        var err = controller.CheckDatabase();
         if (!err.IsSuccess) return err;
 
-        var table = GetTable(dropTable.TableName);
+        var table = controller.GetTable(dropTable.TableName);
         if (table is null) {
             return QueryResult.Err($"Table '{dropTable.TableName}' not found.");
         }
 
-        DropTable(table);
+        controller.DropTable(table);
 
         return QueryResult.Ok();
     }
 
     private QueryResult ExecUseDatabase(UseDatabaseStatement useDatabase) {
-        var db = GetDb(useDatabase.DatabaseName);
+        var db = controller.GetDatabase(useDatabase.DatabaseName);
         if (db is null) {
             return QueryResult.Err($"Database '{useDatabase.DatabaseName}' not found.");
         }
         
-        Database = db;
+        controller.Database = db;
 
         return QueryResult.Ok();
     }
 
     private QueryResult ExecCreateDatabase(CreateDatabaseStatement createDatabase) {
-        var existingDb = GetDb(createDatabase.DatabaseName);
+        var existingDb = controller.GetDatabase(createDatabase.DatabaseName);
         if (existingDb is not null) {
             return QueryResult.Err($"Database '{createDatabase.DatabaseName}' already exists.");
         }
@@ -97,62 +95,19 @@ internal sealed class SqlEngine {
             Tables = []
         };
 
-        CreateDatabase(db);
+        controller.CreateDatabase(db);
 
         return QueryResult.Ok();
     }
 
-    
     private QueryResult ExecDropDatabase(DropDatabaseStatement createDatabase) {
-        var db = GetDb(createDatabase.DatabaseName);
+        var db = controller.GetDatabase(createDatabase.DatabaseName);
         if (db is null) {
             return QueryResult.Err($"Database '{createDatabase.DatabaseName}' not found.");
         }
 
-        DropDatabase(db);
+        controller.DropDatabase(db);
 
         return QueryResult.Ok();
-    }
-
-    private SqlTable? GetTable(string name) {
-        var table = Database!.Tables
-            .FirstOrDefault(x => x.Name == name);
-
-        return table;
-    }
-
-    private SqlDatabase? GetDb(string name) {
-        var db = Databases
-            .FirstOrDefault(x => x.Name == name);
-
-        return db;
-    }
-
-    private void CreateDatabase(SqlDatabase db) {
-        Databases.Add(db);
-    }
-
-    private void DropDatabase(SqlDatabase db) {
-        Databases.Remove(db);
-    }
-
-    private void CreateTable(SqlTable table) {
-        Database!.Tables.Add(table);
-    }
-
-    private void DropTable(SqlTable table) {
-        Database!.Tables.Remove(table);
-    }
-
-    private QueryResult CheckDatabase() {
-        if (Database is null) {
-            return QueryResult.Err("A database target is required.");
-        }
-        
-        return QueryResult.Ok();
-    }
-
-    private static QueryResult UnknownQuery() {
-        return QueryResult.Err("Unknown query attempted to execute.");
     }
 }

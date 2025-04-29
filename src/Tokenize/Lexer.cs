@@ -2,9 +2,8 @@ namespace Primrose.src.Tokenize;
 
 internal sealed class Lexer {
     private int Current = 0;
-    private string Source;
-
-    private List<Token> Tokens = []; 
+    private readonly string Source;
+    private readonly List<Token> Tokens = []; 
     
     public Lexer(string source) {
         Source = source;
@@ -20,6 +19,9 @@ internal sealed class Lexer {
         ["char"] = TokenType.Character,
         ["use"] = TokenType.Use,
         ["database"] = TokenType.Database,
+        ["insert"] = TokenType.Insert,
+        ["into"] = TokenType.Into,
+        ["values"] = TokenType.Values,
     };
 
     private readonly Dictionary<string, TokenType> Symbols = new() {
