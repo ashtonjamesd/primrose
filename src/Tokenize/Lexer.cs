@@ -22,13 +22,17 @@ internal sealed class Lexer {
         ["insert"] = TokenType.Insert,
         ["into"] = TokenType.Into,
         ["values"] = TokenType.Values,
+        ["select"] = TokenType.Select,
+        ["from"] = TokenType.From,
     };
 
     private readonly Dictionary<string, TokenType> Symbols = new() {
         ["("] = TokenType.LeftParen,
         [")"] = TokenType.RightParen,
-        [","] = TokenType.Commma,
+        [","] = TokenType.Comma,
         [";"] = TokenType.Semicolon,
+        ["\'"] = TokenType.Quote,
+        ["*"] = TokenType.Star
     };
 
     public void Print() {
@@ -63,18 +67,22 @@ internal sealed class Lexer {
 
         return c switch {
             _ when IsValidIdentifierChar(c) => ParseIdentifier(),
+            _ when c is '\'' => ParseString(),
             _ => ParseSymbol()
         }; 
     }
 
-    private Token ParseSymbol() {
-        var c = CurrentChar().ToString();
+    private Token ParseString() {
+        int start = Current;
+        Advance();
 
-        if (Symbols.TryGetValue(c, out var type)) {
-            return NewToken(c, type);
+        while (CurrentChar() is not '\'') {
+            Advance();
         }
 
-        return NewToken("", TokenType.Bad);
+        var lexeme = Source[(start + 1)..Current];
+
+        return NewToken(lexeme, TokenType.String);
     }
 
     private Token ParseIdentifier() {
@@ -91,6 +99,16 @@ internal sealed class Lexer {
         }
 
         return NewToken(lexeme, TokenType.Identifier);
+    }
+
+    private Token ParseSymbol() {
+        var c = CurrentChar().ToString();
+
+        if (Symbols.TryGetValue(c, out var type)) {
+            return NewToken(c, type);
+        }
+
+        return NewToken("", TokenType.Bad);
     }
 
     private static bool IsValidIdentifierChar(char c) {

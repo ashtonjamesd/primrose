@@ -40,9 +40,38 @@ internal sealed class SqlEngine {
             _ when stmt is CreateDatabaseStatement x => ExecCreateDatabase(x),
             _ when stmt is DropDatabaseStatement x => ExecDropDatabase(x),
             _ when stmt is InsertIntoStatement x => ExecInsertInto(x),
+            _ when stmt is SelectStatement x => ExecSelect(x),
             _ => controller.UnknownQuery()
         };
     }
+
+    private QueryResult ExecSelect(SelectStatement select) {
+        var table = controller.GetTable(select.TableName);
+        if (table is null) return controller.TableNotFound(select.TableName);
+
+        Console.WriteLine($"{table.Name}:");
+
+        Console.Write("    ");
+        foreach (var column in table.Columns) {
+            Console.Write($"{column.ColumnName,-15}");
+        }
+        Console.WriteLine();
+
+        for (int i = 0; i < table.Rows.Count; i++) {
+            var row = table.Rows[i];
+            Console.Write($"{i,3} ");
+
+            for (int j = 0; j < table.Columns.Count; j++) {
+                var value = row.Values.ElementAt(j)?.ToString() ?? "NULL";
+                Console.Write(value.PadRight(15));
+            }
+
+            Console.WriteLine();
+        }
+
+        return QueryResult.Ok();
+    }
+
 
     private QueryResult ExecInsertInto(InsertIntoStatement insertInto) {
         var err = controller.CheckDatabase();
@@ -51,18 +80,15 @@ internal sealed class SqlEngine {
         var table = controller.GetTable(insertInto.TableName);
         if (table is null) return controller.TableNotFound(insertInto.TableName);
 
-        for (int i = 0; i < insertInto.ColumnNames.Count; i++) {
-            var columnName = insertInto.ColumnNames[i];
+        foreach (var valueList in insertInto.ValuesList) {
+            var row = new Dictionary<string, object?>();
 
-            foreach (var values in insertInto.ValuesList) {
-                var row = new Dictionary<string, object?>();
-
-                foreach (var value in values.Values) {
-                    row[columnName] = value;
-                }
-
-                table.Rows.Add(row);
+            for (int i = 0; i < valueList.Values.Count; i++) {
+                var columnName = insertInto.ColumnNames[i];
+                row[columnName] = valueList.Values[i];
             }
+
+            table.Rows.Add(row);
         }
 
         return QueryResult.Ok();
@@ -73,9 +99,7 @@ internal sealed class SqlEngine {
         if (!err.IsSuccess) return err;
 
         var existingTable = controller.GetTable(createTable.TableName);
-        if (existingTable is not null) {
-            return QueryResult.Err($"Table '{createTable.TableName}' already exists.");
-        }
+        if (existingTable is not null) return controller.TableAlreadyExists(createTable.TableName);
 
         var table = new SqlTable() {
             Name = createTable.TableName,
@@ -102,9 +126,7 @@ internal sealed class SqlEngine {
 
     private QueryResult ExecUseDatabase(UseDatabaseStatement useDatabase) {
         var db = controller.GetDatabase(useDatabase.DatabaseName);
-        if (db is null) {
-            return QueryResult.Err($"Database '{useDatabase.DatabaseName}' not found.");
-        }
+        if (db is null) return controller.DatabaseNotFound(useDatabase.DatabaseName);
         
         controller.Database = db;
 
@@ -113,9 +135,7 @@ internal sealed class SqlEngine {
 
     private QueryResult ExecCreateDatabase(CreateDatabaseStatement createDatabase) {
         var existingDb = controller.GetDatabase(createDatabase.DatabaseName);
-        if (existingDb is not null) {
-            return QueryResult.Err($"Database '{createDatabase.DatabaseName}' already exists.");
-        }
+        if (existingDb is not null) return controller.DatabaseAlreadyExists(createDatabase.DatabaseName);
 
         var db = new SqlDatabase() {
             Name = createDatabase.DatabaseName,
@@ -129,9 +149,7 @@ internal sealed class SqlEngine {
 
     private QueryResult ExecDropDatabase(DropDatabaseStatement createDatabase) {
         var db = controller.GetDatabase(createDatabase.DatabaseName);
-        if (db is null) {
-            return QueryResult.Err($"Database '{createDatabase.DatabaseName}' not found.");
-        }
+        if (db is null) return controller.DatabaseNotFound(createDatabase.DatabaseName);
 
         controller.DropDatabase(db);
 

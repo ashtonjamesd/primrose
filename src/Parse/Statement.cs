@@ -45,6 +45,11 @@ internal sealed class InsertIntoStatement : Statement {
     public required List<InsertValues> ValuesList { get; set; }
 }
 
+internal sealed class SelectStatement : Statement {
+    public required string TableName { get; set; }
+    public required List<string> Columns { get; set; }
+}
+
 internal sealed class ColumnDefinition {
     public required string ColumnName { get; set; }
     public required string Type { get; set; }

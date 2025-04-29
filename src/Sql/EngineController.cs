@@ -22,6 +22,18 @@ internal class EngineController {
         return QueryResult.Err($"Table '{table}' not found.");
     }
 
+    public QueryResult TableAlreadyExists(string table) {
+        return QueryResult.Err($"Table '{table}' already exists.");
+    }
+
+    public QueryResult DatabaseAlreadyExists(string database) {
+        return QueryResult.Err($"Database '{database}' already exists.");
+    }
+
+    public QueryResult DatabaseNotFound(string database) {
+        return QueryResult.Err($"Database '{database}' not found.");
+    }
+
     public void CreateDatabase(SqlDatabase db) {
         Databases.Add(db);
     }

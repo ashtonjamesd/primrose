@@ -59,11 +59,20 @@ internal sealed class Parser {
                 foreach (var value in insertInto.ValuesList[i].Values) {
                     Console.Write($"{value}, ");
                 }
+                Console.WriteLine();
             }
         }
+        else if (stmt is SelectStatement select ) {
+            Console.WriteLine("select");
+            Console.Write(new string(' ', depth * 3) + "columns: ");
+            foreach (var column in select.Columns) {
+                Console.WriteLine(column);
+            }
+            Console.WriteLine();
+            Console.Write(new string(' ', depth * 3));
+            Console.WriteLine($"from: {select.TableName}");
+        }
     }
-
-    // insert into x (ca, cb, cc) values (a, b, c)
 
     public SqlAst CreateAst() {
         while (!IsLast()) {
@@ -81,12 +90,15 @@ internal sealed class Parser {
     }
 
     private Statement ParseStatement() {
-        return CurrentToken().Type switch {
+        var c = CurrentToken();
+
+        return c.Type switch {
             TokenType.Create => ParseCreate(),
             TokenType.Drop => ParseDrop(),
             TokenType.Use => ParseUseDatabase(),
             TokenType.Insert => ParseInsertInto(),
-            _ => BadStatement("Invalid SQL statement.")
+            TokenType.Select => ParseSelect(),
+            _ => UnknownStatement(c.Lexeme)
         };
     }
 
@@ -96,7 +108,7 @@ internal sealed class Parser {
         return next.Type switch {
             TokenType.Table => ParseCreateTable(),
             TokenType.Database => ParseCreateDatabase(),
-            _                => BadStatement("Invalid SQL statement.")
+            _                => UnknownStatement(next.Lexeme)
         }; 
     }
 
@@ -106,22 +118,32 @@ internal sealed class Parser {
         return next.Type switch {
             TokenType.Table => ParseDropTable(),
             TokenType.Database => ParseDropDatabase(),
-            _                => BadStatement("Invalid SQL statement.")
+            _                => UnknownStatement(next.Lexeme)
         }; 
     }
 
-    private static BadStatement BadStatement(string error) {
+    private Statement UnknownStatement(string stmt) {
         return new BadStatement() {
-            Error = error
+            Error = $"Invalid statement: {stmt}"
         };
     }
 
-    private BadStatement Error() {
-        Current--;
-        var errorToken = CurrentToken();
+    private Statement ParseSelect() {
+        var isSelect = Expect(TokenType.Select);
+        if (!isSelect) return Error();
 
-        return new() {
-            Error = $"Syntax error near '{errorToken.Lexeme}'"
+        var isStar = Expect(TokenType.Star);
+        if (!isStar) return Error();
+
+        var isFrom = Expect(TokenType.From);
+        if (!isFrom) return Error();
+
+        var tableNameToken = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+
+        return new SelectStatement() {
+            TableName = tableNameToken.Lexeme,
+            Columns = []
         };
     }
 
@@ -188,7 +210,7 @@ internal sealed class Parser {
             };
 
             columns.Add(column);
-        } while (Match(TokenType.Commma));
+        } while (Match(TokenType.Comma));
 
         var isRightParen =  Expect(TokenType.RightParen);
         if (!isRightParen) return Error();
@@ -226,7 +248,7 @@ internal sealed class Parser {
             Advance();
 
             columns.Add(columnName.Lexeme);
-        } while (Match(TokenType.Commma));
+        } while (Match(TokenType.Comma));
         
         // Expect(TokenType.RightParen)
         //    .Then(TokenType.Values)
@@ -238,31 +260,44 @@ internal sealed class Parser {
         var isValues =  Expect(TokenType.Values);
         if (!isValues) return Error();
 
-        var isValuesLeftParen =  Expect(TokenType.LeftParen);
-        if (!isValuesLeftParen) return Error();
-        
-        InsertValues insertValues = new() {
-            Values = [],
-        };
+        List<InsertValues> insertValuesList = [];
 
         Current--;
+
         do {
+            InsertValues insertValues = new() {
+                Values = []
+            };
+
             Advance();
 
-            var value = CurrentToken();
-            if (!Match(TokenType.Identifier)) return Error();
-            Advance();
+            var isValuesLeftParen =  Expect(TokenType.LeftParen);
+            if (!isValuesLeftParen) return Error();
 
-            insertValues.Values.Add(value.Lexeme);
-        } while (Match(TokenType.Commma));
+            Current--;
+            do {
+                Advance();
+                
+                var value = CurrentToken();
+                if (!Match(TokenType.String)) return Error();
+                Advance();
 
-        var isValuesRightParen =  Expect(TokenType.RightParen);
-        if (!isValuesRightParen) return Error();
+                insertValues.Values.Add(value.Lexeme);
+            } while (Match(TokenType.Comma));
+
+            var isValuesRightParen =  Expect(TokenType.RightParen);
+            if (!isValuesRightParen) return Error();
+
+            insertValuesList.Add(insertValues);
+
+        } while (Match(TokenType.Comma));
+
+        Current--;
 
         return new InsertIntoStatement() {
             TableName = tableNameToken.Lexeme,
             ColumnNames = columns,
-            ValuesList = [insertValues] // to do
+            ValuesList = insertValuesList
         };
     }
 
@@ -300,6 +335,15 @@ internal sealed class Parser {
         if (token.Type is TokenType.Boolean) return true;
         
         return false;
+    }
+
+    private BadStatement Error() {
+        Current--;
+        var errorToken = CurrentToken();
+
+        return new() {
+            Error = $"Syntax error near '{errorToken.Lexeme}'"
+        };
     }
 
     private bool Match(TokenType type) {

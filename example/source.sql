@@ -7,4 +7,6 @@ create table myTable(
 )
 
 insert into myTable(intField, charField)
-values (a, b, c)
+values ('a', 'a'), ('c', 'd')
+
+select * from myTable

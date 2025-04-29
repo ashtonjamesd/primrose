@@ -9,18 +9,23 @@ internal enum TokenType {
     Insert,
     Into,
     Values,
+    Select,
+    From,
 
     Varchar,
     Integer,
     Boolean,
     Character,
 
-    Commma,
+    Comma,
     LeftParen,
     RightParen,
     Semicolon,
+    Star,
+    Quote,
 
     Identifier,
+    String,
     Numeric,
     
     Bad,
