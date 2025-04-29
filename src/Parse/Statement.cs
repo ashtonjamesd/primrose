@@ -39,9 +39,19 @@ internal sealed class UseDatabaseStatement : Statement {
     }
 }
 
+internal sealed class InsertIntoStatement : Statement {
+    public required string TableName { get; set; }
+    public required List<string> ColumnNames { get; set; }
+    public required List<InsertValues> ValuesList { get; set; }
+}
+
 internal sealed class ColumnDefinition {
     public required string ColumnName { get; set; }
     public required string Type { get; set; }
+}
+
+internal sealed class InsertValues {
+    public required List<string> Values { get; set; }
 }
 
 internal sealed class DropTableStatement : Statement {

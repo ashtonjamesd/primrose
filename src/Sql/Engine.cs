@@ -7,6 +7,10 @@ internal sealed class SqlEngine {
     private readonly EngineController controller = new();
     private readonly bool IsDebug;
 
+    public SqlEngine(bool debug) {
+        IsDebug = debug;
+    }
+
     public void ExecuteQuery(string query) {
         var lexer = new Lexer(query);
         var tokens = lexer.Tokenize();
@@ -35,8 +39,33 @@ internal sealed class SqlEngine {
             _ when stmt is UseDatabaseStatement x => ExecUseDatabase(x),
             _ when stmt is CreateDatabaseStatement x => ExecCreateDatabase(x),
             _ when stmt is DropDatabaseStatement x => ExecDropDatabase(x),
+            _ when stmt is InsertIntoStatement x => ExecInsertInto(x),
             _ => controller.UnknownQuery()
         };
+    }
+
+    private QueryResult ExecInsertInto(InsertIntoStatement insertInto) {
+        var err = controller.CheckDatabase();
+        if (!err.IsSuccess) return err;
+
+        var table = controller.GetTable(insertInto.TableName);
+        if (table is null) return controller.TableNotFound(insertInto.TableName);
+
+        for (int i = 0; i < insertInto.ColumnNames.Count; i++) {
+            var columnName = insertInto.ColumnNames[i];
+
+            foreach (var values in insertInto.ValuesList) {
+                var row = new Dictionary<string, object?>();
+
+                foreach (var value in values.Values) {
+                    row[columnName] = value;
+                }
+
+                table.Rows.Add(row);
+            }
+        }
+
+        return QueryResult.Ok();
     }
 
     private QueryResult ExecCreateTable(CreateTableStatement createTable) {
@@ -64,9 +93,7 @@ internal sealed class SqlEngine {
         if (!err.IsSuccess) return err;
 
         var table = controller.GetTable(dropTable.TableName);
-        if (table is null) {
-            return QueryResult.Err($"Table '{dropTable.TableName}' not found.");
-        }
+        if (table is null) return controller.TableNotFound(dropTable.TableName);
 
         controller.DropTable(table);
 

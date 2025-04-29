@@ -4,10 +4,15 @@ namespace Primrose.src;
 
 internal class Program {
     static void Main() {
-        var db = new SqlEngine();
+        var db = new SqlEngine(debug: true);
 
         Console.Clear();
         Console.WriteLine("Database connected.\n");
+
+        //
+            db.ExecuteQuery(File.ReadAllText("source.sql"));
+        //
+        return;
 
         while (true) {
             Console.Write("> ");

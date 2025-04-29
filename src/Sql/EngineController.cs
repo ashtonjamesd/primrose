@@ -18,6 +18,10 @@ internal class EngineController {
         return db;
     }
 
+    public QueryResult TableNotFound(string table) {
+        return QueryResult.Err($"Table '{table}' not found.");
+    }
+
     public void CreateDatabase(SqlDatabase db) {
         Databases.Add(db);
     }

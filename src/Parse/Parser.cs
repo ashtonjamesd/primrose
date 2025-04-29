@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Primrose.src.Tokenize;
 
 namespace Primrose.src.Parse;
@@ -31,8 +32,38 @@ internal sealed class Parser {
                 Console.Write(new string(' ', depth * 2));
                 Console.WriteLine($"  {col.ColumnName}: {col.Type}");
             }
+        } else if (stmt is DropTableStatement dropTable) {
+            Console.WriteLine($"drop table {dropTable.TableName}");
+        }
+        else if (stmt is CreateDatabaseStatement createDatabase) {
+            Console.WriteLine($"create database {createDatabase.DatabaseName}");
+        }
+        else if (stmt is DropDatabaseStatement dropDatabase) {
+            Console.WriteLine($"drop database {dropDatabase.DatabaseName}");
+        }
+        else if (stmt is UseDatabaseStatement useDatabase) {
+            Console.WriteLine($"use database {useDatabase.DatabaseName}");
+        }
+        else if (stmt is InsertIntoStatement insertInto) {
+            Console.WriteLine($"insert into {insertInto.TableName}");
+            Console.Write(new string(' ', depth * 3) + "columns: ");
+            foreach (var column in insertInto.ColumnNames) {
+                Console.Write($"{column}, ");
+            }
+            Console.WriteLine();
+            
+            Console.Write(new string(' ', depth * 3) + $"values list ({insertInto.ValuesList.Count}):\n");
+            for (int i = 0; i < insertInto.ValuesList.Count; i++) {
+                Console.Write(new string(' ', depth * 5) + $"values ({i}): ");
+
+                foreach (var value in insertInto.ValuesList[i].Values) {
+                    Console.Write($"{value}, ");
+                }
+            }
         }
     }
+
+    // insert into x (ca, cb, cc) values (a, b, c)
 
     public SqlAst CreateAst() {
         while (!IsLast()) {
@@ -54,6 +85,7 @@ internal sealed class Parser {
             TokenType.Create => ParseCreate(),
             TokenType.Drop => ParseDrop(),
             TokenType.Use => ParseUseDatabase(),
+            TokenType.Insert => ParseInsertInto(),
             _ => BadStatement("Invalid SQL statement.")
         };
     }
@@ -132,7 +164,6 @@ internal sealed class Parser {
 
         var tableNameToken = CurrentToken();
         if (!Match(TokenType.Identifier)) return Error();
-
         Advance();
 
         var isLeftParen =  Expect(TokenType.LeftParen);
@@ -157,15 +188,81 @@ internal sealed class Parser {
             };
 
             columns.Add(column);
-
         } while (Match(TokenType.Commma));
 
         var isRightParen =  Expect(TokenType.RightParen);
-        if (!isLeftParen) return Error();
-        
+        if (!isRightParen) return Error();
+
+        Current--;
+
         return new CreateTableStatement() {
             TableName = tableNameToken.Lexeme,
             Columns = columns
+        };
+    }
+
+    private Statement ParseInsertInto() {
+        var isInsert = Expect(TokenType.Insert);
+        if (!isInsert) return Error();
+
+        var isInto = Expect(TokenType.Into);
+        if (!isInto) return Error();
+
+        var tableNameToken = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+        Advance();
+        
+        var isLeftParen =  Expect(TokenType.LeftParen);
+        if (!isLeftParen) return Error();
+
+        List<string> columns = [];
+
+        Current--;
+        do {
+            Advance();
+
+            var columnName = CurrentToken();
+            if (!Match(TokenType.Identifier)) return Error();
+            Advance();
+
+            columns.Add(columnName.Lexeme);
+        } while (Match(TokenType.Commma));
+        
+        // Expect(TokenType.RightParen)
+        //    .Then(TokenType.Values)
+        //    .Then(TokenType.LeftParen)
+
+        var isRightParen =  Expect(TokenType.RightParen);
+        if (!isRightParen) return Error();
+
+        var isValues =  Expect(TokenType.Values);
+        if (!isValues) return Error();
+
+        var isValuesLeftParen =  Expect(TokenType.LeftParen);
+        if (!isValuesLeftParen) return Error();
+        
+        InsertValues insertValues = new() {
+            Values = [],
+        };
+
+        Current--;
+        do {
+            Advance();
+
+            var value = CurrentToken();
+            if (!Match(TokenType.Identifier)) return Error();
+            Advance();
+
+            insertValues.Values.Add(value.Lexeme);
+        } while (Match(TokenType.Commma));
+
+        var isValuesRightParen =  Expect(TokenType.RightParen);
+        if (!isValuesRightParen) return Error();
+
+        return new InsertIntoStatement() {
+            TableName = tableNameToken.Lexeme,
+            ColumnNames = columns,
+            ValuesList = [insertValues] // to do
         };
     }
 
