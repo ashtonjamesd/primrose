@@ -38,7 +38,7 @@ internal sealed class Parser {
         while (!IsLast()) {
             var statement = ParseStatement();
             if (statement is BadStatement bad) {
-                Console.WriteLine(bad.Error);
+                Console.WriteLine($"{bad.Error}\n");
                 return Ast;
             }
 
@@ -94,8 +94,11 @@ internal sealed class Parser {
     }
 
     private Statement ParseDropTable() {
-        Expect(TokenType.Drop);
-        Expect(TokenType.Table);
+        var isDrop = Expect(TokenType.Drop);
+        if (!isDrop) return Error();
+
+        var isTable =  Expect(TokenType.Table);
+        if (!isTable) return Error();
 
         var tableNameToken = CurrentToken();
         if (!Match(TokenType.Identifier)) return Error();
@@ -106,8 +109,11 @@ internal sealed class Parser {
     }
 
     private Statement ParseDropDatabase() {
-        Expect(TokenType.Drop);
-        Expect(TokenType.Database);
+        var isDrop = Expect(TokenType.Drop);
+        if (!isDrop) return Error();
+
+        var isDatabase =  Expect(TokenType.Database);
+        if (!isDatabase) return Error();
 
         var tableNameToken = CurrentToken();
         if (!Match(TokenType.Identifier)) return Error();
@@ -129,7 +135,8 @@ internal sealed class Parser {
 
         Advance();
 
-        Expect(TokenType.LeftParen);
+        var isLeftParen =  Expect(TokenType.LeftParen);
+        if (!isLeftParen) return Error();
 
         Current--;
         var columns = new List<ColumnDefinition>();
@@ -153,8 +160,9 @@ internal sealed class Parser {
 
         } while (Match(TokenType.Commma));
 
-        Expect(TokenType.RightParen);
-
+        var isRightParen =  Expect(TokenType.RightParen);
+        if (!isLeftParen) return Error();
+        
         return new CreateTableStatement() {
             TableName = tableNameToken.Lexeme,
             Columns = columns
@@ -162,8 +170,11 @@ internal sealed class Parser {
     }
 
     private Statement ParseCreateDatabase() {
-        Expect(TokenType.Create);
-        Expect(TokenType.Database);
+        var isCreate = Expect(TokenType.Create);
+        if (!isCreate) return Error();
+
+        var isDatabase =  Expect(TokenType.Database);
+        if (!isDatabase) return Error();
         
         var dbNameToken = CurrentToken();
         if (!Match(TokenType.Identifier)) return Error();
@@ -174,8 +185,9 @@ internal sealed class Parser {
     }
 
     private Statement ParseUseDatabase() {
-        Expect(TokenType.Use);
-
+        var isUse = Expect(TokenType.Use);
+        if (!isUse) return Error();
+        
         var dbNameToken = CurrentToken();
         if (!Match(TokenType.Identifier)) return Error();
 

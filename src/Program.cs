@@ -7,12 +7,20 @@ internal class Program {
         var db = new SqlEngine();
 
         Console.Clear();
+        Console.WriteLine("Database connected.\n");
+
         while (true) {
             Console.Write("> ");
             var query = Console.ReadLine();
             
+            if (string.IsNullOrWhiteSpace(query)) continue;
+            if (query.StartsWith(':')) {
+                if (query.ToLower() is ":quit" or ":q") break;
+            }
+
             db.ExecuteQuery(query);
         }
 
+        Console.WriteLine("\nClosed database connection.");
     }
 }
