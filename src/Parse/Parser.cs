@@ -1,0 +1,228 @@
+using Primrose.src.Tokenize;
+
+namespace Primrose.src.Parse;
+
+internal sealed class Parser {
+    private readonly List<Token> Tokens;
+    private readonly SqlAst Ast = new();
+
+    private int Current;
+
+    public Parser(List<Token> tokens) {
+        Tokens = tokens;
+    }
+
+    public void Print() {
+        Console.WriteLine($"\nCurrent: {Current}");
+        Console.WriteLine($"Ast ({Ast.Program.Count}):");
+
+        foreach (var statement in Ast.Program) {
+            PrintStatement(statement, 1);
+        }
+        Console.WriteLine();
+    }
+
+    private static void PrintStatement(Statement stmt, int depth) {
+        Console.Write(new string(' ', depth * 2));
+        
+        if (stmt is CreateTableStatement createTable) {
+            Console.WriteLine($"create table {createTable.TableName}");
+            foreach (var col in createTable.Columns) {
+                Console.Write(new string(' ', depth * 2));
+                Console.WriteLine($"  {col.ColumnName}: {col.Type}");
+            }
+        }
+    }
+
+    public SqlAst CreateAst() {
+        while (!IsLast()) {
+            var statement = ParseStatement();
+            if (statement is BadStatement bad) {
+                Console.WriteLine(bad.Error);
+                return Ast;
+            }
+
+            Ast.Program.Add(statement);
+            Advance();
+        }
+
+        return Ast;
+    }
+
+    private Statement ParseStatement() {
+        return CurrentToken().Type switch {
+            TokenType.Create => ParseCreate(),
+            TokenType.Drop => ParseDrop(),
+            TokenType.Use => ParseUseDatabase(),
+            _ => BadStatement("Invalid SQL statement.")
+        };
+    }
+
+    private Statement ParseCreate() {
+        var next = Peek();
+
+        return next.Type switch {
+            TokenType.Table => ParseCreateTable(),
+            TokenType.Database => ParseCreateDatabase(),
+            _                => BadStatement("Invalid SQL statement.")
+        }; 
+    }
+
+    private Statement ParseDrop() {
+        var next = Peek();
+
+        return next.Type switch {
+            TokenType.Table => ParseDropTable(),
+            TokenType.Database => ParseDropDatabase(),
+            _                => BadStatement("Invalid SQL statement.")
+        }; 
+    }
+
+    private static BadStatement BadStatement(string error) {
+        return new BadStatement() {
+            Error = error
+        };
+    }
+
+    private BadStatement Error() {
+        Current--;
+        var errorToken = CurrentToken();
+
+        return new() {
+            Error = $"Syntax error near '{errorToken.Lexeme}'"
+        };
+    }
+
+    private Statement ParseDropTable() {
+        Expect(TokenType.Drop);
+        Expect(TokenType.Table);
+
+        var tableNameToken = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+
+        return new DropTableStatement() {
+            TableName = tableNameToken.Lexeme
+        };
+    }
+
+    private Statement ParseDropDatabase() {
+        Expect(TokenType.Drop);
+        Expect(TokenType.Database);
+
+        var tableNameToken = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+
+        return new DropDatabaseStatement() {
+            DatabaseName = tableNameToken.Lexeme
+        };
+    }
+
+    private Statement ParseCreateTable() {
+        var isCreate = Expect(TokenType.Create);
+        if (!isCreate) return Error();
+
+        var isTable =  Expect(TokenType.Table);
+        if (!isTable) return Error();
+
+        var tableNameToken = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+
+        Advance();
+
+        Expect(TokenType.LeftParen);
+
+        Current--;
+        var columns = new List<ColumnDefinition>();
+        do {
+            Advance();
+
+            var columnName = CurrentToken();
+            if (!Match(TokenType.Identifier)) return Error();
+            Advance();
+
+            var columnType = CurrentToken();
+            if (!IsDataTypeToken(columnType)) return Error();
+            Advance();
+
+            var column = new ColumnDefinition() {
+                ColumnName = columnName.Lexeme,
+                Type = columnType.Lexeme
+            };
+
+            columns.Add(column);
+
+        } while (Match(TokenType.Commma));
+
+        Expect(TokenType.RightParen);
+
+        return new CreateTableStatement() {
+            TableName = tableNameToken.Lexeme,
+            Columns = columns
+        };
+    }
+
+    private Statement ParseCreateDatabase() {
+        Expect(TokenType.Create);
+        Expect(TokenType.Database);
+        
+        var dbNameToken = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+
+        return new CreateDatabaseStatement() {
+            DatabaseName = dbNameToken.Lexeme
+        };
+    }
+
+    private Statement ParseUseDatabase() {
+        Expect(TokenType.Use);
+
+        var dbNameToken = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+
+        return new UseDatabaseStatement() {
+            DatabaseName = dbNameToken.Lexeme
+        };
+    }
+
+    private static bool IsDataTypeToken(Token token) {
+        if (token.Type is TokenType.Character) return true;
+        if (token.Type is TokenType.Integer) return true;
+        if (token.Type is TokenType.Varchar) return true;
+        if (token.Type is TokenType.Boolean) return true;
+        
+        return false;
+    }
+
+    private bool Match(TokenType type) {
+        return CurrentToken().Type == type;
+    }
+
+    private Token Peek() {
+        Advance();
+        var token = CurrentToken();
+        Current--;
+
+        return token;
+    }
+
+    private bool Expect(TokenType type) {
+        if (!IsLast() && CurrentToken().Type == type) {
+            Advance();
+            return true;
+        }
+
+        return false;
+    }
+
+    private Token CurrentToken() {
+        return !IsLast() ? Tokens[Current] : new() { Lexeme = "", Type = TokenType.Bad };
+    }
+
+    private void Advance() {
+        Current++;
+    }
+
+    private bool IsLast() {
+        return Current >= Tokens.Count;
+    }
+}
