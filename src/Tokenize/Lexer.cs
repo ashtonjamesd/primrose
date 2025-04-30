@@ -13,10 +13,10 @@ internal sealed class Lexer {
         ["create"] = TokenType.Create,
         ["table"] = TokenType.Table,
         ["drop"] = TokenType.Drop,
-        ["int"] = TokenType.Integer,
-        ["bool"] = TokenType.Boolean,
+        ["int"] = TokenType.Int,
+        ["boolean"] = TokenType.Boolean,
         ["varchar"] = TokenType.Varchar,
-        ["char"] = TokenType.Character,
+        ["char"] = TokenType.Char,
         ["use"] = TokenType.Use,
         ["database"] = TokenType.Database,
         ["insert"] = TokenType.Insert,
@@ -24,6 +24,10 @@ internal sealed class Lexer {
         ["values"] = TokenType.Values,
         ["select"] = TokenType.Select,
         ["from"] = TokenType.From,
+        ["true"] = TokenType.True,
+        ["false"] = TokenType.False,
+        ["null"] = TokenType.Null,
+        ["not"] = TokenType.Not,
     };
 
     private readonly Dictionary<string, TokenType> Symbols = new() {
@@ -32,7 +36,8 @@ internal sealed class Lexer {
         [","] = TokenType.Comma,
         [";"] = TokenType.Semicolon,
         ["\'"] = TokenType.Quote,
-        ["*"] = TokenType.Star
+        ["*"] = TokenType.Star,
+        ["-"] = TokenType.Minus,
     };
 
     public void Print() {
@@ -49,9 +54,7 @@ internal sealed class Lexer {
 
     public List<Token> Tokenize() {
         while (!IsEnd()) {
-            while (CurrentChar() is ' ' or '\n' or '\t' or '\r') {
-                Advance();
-            }
+            SkipWhitespaceAndComments();
 
             var token = ParseToken();
             Tokens.Add(token);
@@ -62,14 +65,48 @@ internal sealed class Lexer {
         return Tokens;
     }
 
+        private void SkipWhitespaceAndComments() {
+            while (!IsEnd()) {
+                var c = CurrentChar();
+
+                if (c is ' ' or '\n' or '\t' or '\r') {
+                    Advance();
+                }
+                else if (c is '-' && Peek() is '-') {
+                    Advance();
+                    Advance();
+                    while (CurrentChar() is not ('\n' or '\r') && !IsEnd()) {
+                        Advance();
+                    }
+                }
+                else {
+                    break;
+                }
+            }
+        }
+
     private Token ParseToken() {
         var c = CurrentChar();
 
         return c switch {
-            _ when IsValidIdentifierChar(c) => ParseIdentifier(),
+            _ when char.IsLetter(c) => ParseIdentifier(),
+            _ when char.IsDigit(c) => ParseNumeric(),
             _ when c is '\'' => ParseString(),
             _ => ParseSymbol()
         }; 
+    }
+
+    private Token ParseNumeric() {
+        int start = Current;
+
+        while (char.IsDigit(CurrentChar())) {
+            Advance();
+        }
+
+        var lexeme = Source[start..Current];
+        Recede();
+
+        return NewToken(lexeme, TokenType.Numeric);
     }
 
     private Token ParseString() {
@@ -92,7 +129,7 @@ internal sealed class Lexer {
         }
 
         var lexeme = Source[start..Current];
-        Current--;
+        Recede();
         
         if (Keywords.TryGetValue(lexeme, out var type)) {
             return NewToken(lexeme, type);
@@ -133,7 +170,19 @@ internal sealed class Lexer {
         return IsEnd() ? '\0' : Source[Current];
     }
 
+    private char Peek() {
+        Advance();
+        var c = CurrentChar();
+        Recede();
+
+        return c;
+    }
+
     private void Advance() {
         Current++;
+    }
+
+    private void Recede() {
+        Current--;
     }
 }

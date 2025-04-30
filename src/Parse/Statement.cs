@@ -1,3 +1,5 @@
+using Primrose.src.Tokenize;
+
 namespace Primrose.src.Parse;
 
 internal sealed class SqlAst {
@@ -52,11 +54,12 @@ internal sealed class SelectStatement : Statement {
 
 internal sealed class ColumnDefinition {
     public required string ColumnName { get; set; }
-    public required string Type { get; set; }
+    public required SqlType Type { get; set; }
+    public required bool CanContainNull { get; set; }
 }
 
 internal sealed class InsertValues {
-    public required List<string> Values { get; set; }
+    public required List<Token> Values { get; set; }
 }
 
 internal sealed class DropTableStatement : Statement {

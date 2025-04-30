@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations.Schema;
+using Primrose.src.Parse;
+
 namespace Primrose.src.Sql;
 
 internal class EngineController {
@@ -9,6 +12,13 @@ internal class EngineController {
             .FirstOrDefault(x => x.Name == name);
 
         return table;
+    }
+
+    public ColumnDefinition? GetColumn(SqlTable table, string columnName) {
+        var column = table.Columns
+            .FirstOrDefault(x => x.ColumnName == columnName);
+
+        return column;
     }
 
     public SqlDatabase? GetDatabase(string name) {

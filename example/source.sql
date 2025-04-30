@@ -2,11 +2,19 @@ create database test
 use test
 
 create table myTable(
-    intField int,
-    charField varchar
+    fieldA boolean,
+    fieldB boolean,
+    fieldC boolean
 )
 
-insert into myTable(intField, charField)
-values ('a', 'a'), ('c', 'd')
+insert into myTable(fieldA, fieldB, fieldC)
+values (null, null, null)
+-- (null, null, null),
+-- (null, null, null),
+-- (null, null, null),
+-- (null, null, null),
+-- (null, null, null),
+-- (null, null, null),
+-- (null, null, null)
 
 select * from myTable

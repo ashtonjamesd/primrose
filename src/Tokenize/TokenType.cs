@@ -11,11 +11,12 @@ internal enum TokenType {
     Values,
     Select,
     From,
+    Not,
 
     Varchar,
-    Integer,
+    Int,
     Boolean,
-    Character,
+    Char,
 
     Comma,
     LeftParen,
@@ -23,10 +24,14 @@ internal enum TokenType {
     Semicolon,
     Star,
     Quote,
+    Minus,
 
     Identifier,
     String,
     Numeric,
+    True,
+    False,
+    Null,
     
     Bad,
 }

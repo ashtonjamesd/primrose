@@ -49,43 +49,92 @@ internal sealed class SqlEngine {
         var table = controller.GetTable(select.TableName);
         if (table is null) return controller.TableNotFound(select.TableName);
 
-        Console.WriteLine($"{table.Name}:");
+        const string leftWhitespaceGap = "";
+        var columnWidths = table.Columns.Select((col, index) => {
+            if (table.Rows.Count is 0) return col.ColumnName.Length;
 
-        Console.Write("    ");
-        foreach (var column in table.Columns) {
-            Console.Write($"{column.ColumnName,-15}");
-        }
-        Console.WriteLine();
+            int maxCellLength = table.Rows
+                .Select(row => row.Values.ElementAtOrDefault(index)?.ToString()?.Length ?? 4) // 'null' length = 4
+                .Max();
+            return Math.Max(col.ColumnName.Length, maxCellLength);
+        }).ToList();
 
-        for (int i = 0; i < table.Rows.Count; i++) {
-            var row = table.Rows[i];
-            Console.Write($"{i,3} ");
-
-            for (int j = 0; j < table.Columns.Count; j++) {
-                var value = row.Values.ElementAt(j)?.ToString() ?? "NULL";
-                Console.Write(value.PadRight(15));
+        void PrintSeparator() {
+            Console.Write($"{leftWhitespaceGap}+");
+            foreach (var width in columnWidths) {
+                Console.Write(new string('-', width + 2));
+                Console.Write("+");
             }
-
             Console.WriteLine();
         }
 
+        Console.WriteLine();
+        PrintSeparator();
+
+        Console.Write($"{leftWhitespaceGap}|");
+        for (int i = 0; i < table.Columns.Count; i++) {
+            Console.Write($" {table.Columns[i].ColumnName.PadRight(columnWidths[i])} |");
+        }
+        Console.WriteLine();
+        PrintSeparator();
+
+        for (int i = 0; i < table.Rows.Count; i++) {
+            var row = table.Rows[i];
+            Console.Write($"{leftWhitespaceGap}|");
+            for (int j = 0; j < table.Columns.Count; j++) {
+                var value = row.Values.ElementAtOrDefault(j)?.ToString() ?? "null";
+                Console.Write($" {value.PadRight(columnWidths[j])} |");
+            }
+            Console.WriteLine();
+        }
+
+        PrintSeparator();
         return QueryResult.Ok();
     }
-
 
     private QueryResult ExecInsertInto(InsertIntoStatement insertInto) {
         var err = controller.CheckDatabase();
         if (!err.IsSuccess) return err;
 
+        for (int i = 0; i < insertInto.ValuesList.Count; i++) {
+            var valueList = insertInto.ValuesList[i];
+
+            if (valueList.Values.Count != insertInto.ColumnNames.Count) {
+                return QueryResult.Err("Supplied arguments in values does not match declared columns.");
+            }
+        }
+
         var table = controller.GetTable(insertInto.TableName);
         if (table is null) return controller.TableNotFound(insertInto.TableName);
+
+        foreach (var column in insertInto.ColumnNames) {
+            var foundColumn = table.Columns
+                .FirstOrDefault(x => x.ColumnName == column);
+
+            if (foundColumn is null) {
+                return QueryResult.Err($"Column '{column}' does not exist.");
+            }
+        }
 
         foreach (var valueList in insertInto.ValuesList) {
             var row = new Dictionary<string, object?>();
 
             for (int i = 0; i < valueList.Values.Count; i++) {
-                var columnName = insertInto.ColumnNames[i];
-                row[columnName] = valueList.Values[i];
+                var column = controller.GetColumn(table, insertInto.ColumnNames[i]);
+                var value = valueList.Values[i];
+
+                if (value.Type is TokenType.Null) {
+                    if (!column!.CanContainNull) {
+                        return QueryResult.Err($"Column '{column.ColumnName}' cannot contain NULL values.");
+                    }
+                    row[column.ColumnName] = null;
+                } 
+                else {
+                    if (!SqlTypeHelper.IsTokenTypeMatch(column!.Type, value)) {
+                        return QueryResult.Err($"Invalid type insertion for '{column.ColumnName}'.");
+                    }
+                    row[column.ColumnName] = value.Lexeme;
+                }
             }
 
             table.Rows.Add(row);

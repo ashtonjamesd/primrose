@@ -57,7 +57,7 @@ internal sealed class Parser {
                 Console.Write(new string(' ', depth * 5) + $"values ({i}): ");
 
                 foreach (var value in insertInto.ValuesList[i].Values) {
-                    Console.Write($"{value}, ");
+                    Console.Write($"{value.Lexeme}, ");
                 }
                 Console.WriteLine();
             }
@@ -191,7 +191,7 @@ internal sealed class Parser {
         var isLeftParen =  Expect(TokenType.LeftParen);
         if (!isLeftParen) return Error();
 
-        Current--;
+        Recede();
         var columns = new List<ColumnDefinition>();
         do {
             Advance();
@@ -204,9 +204,51 @@ internal sealed class Parser {
             if (!IsDataTypeToken(columnType)) return Error();
             Advance();
 
+            var type = SqlMapper.MapTokenToType(columnType);
+            if (type is SqlVarchar sqlVarchar) {
+                var isVarcharLeftParen = Expect(TokenType.LeftParen);
+                if (!isVarcharLeftParen) return Error();
+
+                var count = CurrentToken();
+                if (!Match(TokenType.Numeric) && !Match(TokenType.Identifier)) return Error();
+                if (Match(TokenType.Identifier) && count.Lexeme.ToLower() != "max") return Error();
+                Advance();
+
+                sqlVarchar.MaxChars = count.Type is TokenType.Numeric 
+                    ? int.Parse(count.Lexeme) 
+                    : SqlConstants.VarcharMax;
+
+                var isVarcharRightParen = Expect(TokenType.RightParen);
+                if (!isVarcharRightParen) return Error();
+            }
+            else if (type is SqlChar sqlChar) {
+                var isCharLeftParen = Expect(TokenType.LeftParen);
+                if (!isCharLeftParen) return Error();
+
+                var count = CurrentToken();
+                if (!Match(TokenType.Numeric)) return Error();
+                Advance();
+
+                sqlChar.MaxChars = int.Parse(count.Lexeme);
+
+                var isCharRightParen = Expect(TokenType.RightParen);
+                if (!isCharRightParen) return Error();
+            }
+
+            bool canContainNull = true;
+            if (Match(TokenType.Not)) {
+                Advance();
+                
+                var isNullToken = Expect(TokenType.Null);
+                if (!isNullToken) return Error();
+
+                canContainNull = false;
+            }
+
             var column = new ColumnDefinition() {
                 ColumnName = columnName.Lexeme,
-                Type = columnType.Lexeme
+                Type = type,
+                CanContainNull = canContainNull
             };
 
             columns.Add(column);
@@ -215,7 +257,7 @@ internal sealed class Parser {
         var isRightParen =  Expect(TokenType.RightParen);
         if (!isRightParen) return Error();
 
-        Current--;
+        Recede();
 
         return new CreateTableStatement() {
             TableName = tableNameToken.Lexeme,
@@ -239,7 +281,7 @@ internal sealed class Parser {
 
         List<string> columns = [];
 
-        Current--;
+        Recede();
         do {
             Advance();
 
@@ -262,7 +304,7 @@ internal sealed class Parser {
 
         List<InsertValues> insertValuesList = [];
 
-        Current--;
+        Recede();
 
         do {
             InsertValues insertValues = new() {
@@ -274,15 +316,15 @@ internal sealed class Parser {
             var isValuesLeftParen =  Expect(TokenType.LeftParen);
             if (!isValuesLeftParen) return Error();
 
-            Current--;
+            Recede();
             do {
                 Advance();
                 
                 var value = CurrentToken();
-                if (!Match(TokenType.String)) return Error();
+                if (!SqlTypeHelper.IsValidTypeToken(value)) return Error();
                 Advance();
 
-                insertValues.Values.Add(value.Lexeme);
+                insertValues.Values.Add(value);
             } while (Match(TokenType.Comma));
 
             var isValuesRightParen =  Expect(TokenType.RightParen);
@@ -292,7 +334,7 @@ internal sealed class Parser {
 
         } while (Match(TokenType.Comma));
 
-        Current--;
+        Recede();
 
         return new InsertIntoStatement() {
             TableName = tableNameToken.Lexeme,
@@ -329,8 +371,8 @@ internal sealed class Parser {
     }
 
     private static bool IsDataTypeToken(Token token) {
-        if (token.Type is TokenType.Character) return true;
-        if (token.Type is TokenType.Integer) return true;
+        if (token.Type is TokenType.Char) return true;
+        if (token.Type is TokenType.Int) return true;
         if (token.Type is TokenType.Varchar) return true;
         if (token.Type is TokenType.Boolean) return true;
         
@@ -338,7 +380,7 @@ internal sealed class Parser {
     }
 
     private BadStatement Error() {
-        Current--;
+        Recede();
         var errorToken = CurrentToken();
 
         return new() {
@@ -353,7 +395,7 @@ internal sealed class Parser {
     private Token Peek() {
         Advance();
         var token = CurrentToken();
-        Current--;
+        Recede();
 
         return token;
     }
@@ -373,6 +415,10 @@ internal sealed class Parser {
 
     private void Advance() {
         Current++;
+    }
+
+    private void Recede() {
+        Current--;
     }
 
     private bool IsLast() {
