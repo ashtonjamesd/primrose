@@ -2,19 +2,14 @@ create database test
 use test
 
 create table myTable(
-    fieldA boolean,
-    fieldB boolean,
-    fieldC boolean
+    fieldF varchar(1) not null,
+    fieldA varchar(1),
+    fieldB varchar(1),
+    fieldC varchar(2) not null unique
 )
 
-insert into myTable(fieldA, fieldB, fieldC)
-values (null, null, null)
--- (null, null, null),
--- (null, null, null),
--- (null, null, null),
--- (null, null, null),
--- (null, null, null),
--- (null, null, null),
--- (null, null, null)
+insert into myTable(fieldB, fieldA, fieldF, fieldC)
+values ('c', 'a', 'a', 'c'),
+('c', 'dddd', 'a', 'a')
 
 select * from myTable

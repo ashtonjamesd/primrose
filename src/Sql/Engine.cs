@@ -27,7 +27,6 @@ internal sealed class SqlEngine {
 
             if (!result.IsSuccess) {
                 Console.WriteLine($"{result.Message}\n");
-                break;
             }
         }
     }
@@ -80,10 +79,13 @@ internal sealed class SqlEngine {
 
         for (int i = 0; i < table.Rows.Count; i++) {
             var row = table.Rows[i];
+
             Console.Write($"{leftWhitespaceGap}|");
             for (int j = 0; j < table.Columns.Count; j++) {
-                var value = row.Values.ElementAtOrDefault(j)?.ToString() ?? "null";
-                Console.Write($" {value.PadRight(columnWidths[j])} |");
+                var column = table.Columns[j];
+
+                var value = row[column.ColumnName]?.ToString();
+                Console.Write($" {(value ?? "null").PadRight(columnWidths[j])} |");
             }
             Console.WriteLine();
         }
@@ -123,17 +125,39 @@ internal sealed class SqlEngine {
                 var column = controller.GetColumn(table, insertInto.ColumnNames[i]);
                 var value = valueList.Values[i];
 
+                object? insertedValue;
                 if (value.Type is TokenType.Null) {
                     if (!column!.CanContainNull) {
-                        return QueryResult.Err($"Column '{column.ColumnName}' cannot contain NULL values.");
+                        return QueryResult.Err($"Not null constraint violation: Column '{column.ColumnName}' cannot contain NULL values.");
                     }
-                    row[column.ColumnName] = null;
+                    insertedValue = null;
                 } 
                 else {
                     if (!SqlTypeHelper.IsTokenTypeMatch(column!.Type, value)) {
                         return QueryResult.Err($"Invalid type insertion for '{column.ColumnName}'.");
                     }
-                    row[column.ColumnName] = value.Lexeme;
+                    insertedValue = value.Lexeme;
+                }
+                
+                if (column.IsUnique && insertedValue != null) {
+                    bool conflict = table.Rows.Any(existingRow => 
+                        existingRow.TryGetValue(column.ColumnName, out var existingValue) && existingValue?.Equals(insertedValue) is true
+                    );
+
+                    if (conflict) {
+                        return QueryResult.Err($"Unique constraint violation: value '{insertedValue}' already exists for column '{column.ColumnName}'.");
+                    }
+                }
+
+                row[column.ColumnName] = insertedValue;
+            }
+
+            foreach (var tableColumn in table.Columns) {
+                if (!row.ContainsKey(tableColumn.ColumnName)) {
+                    if (!tableColumn.CanContainNull) {
+                        return QueryResult.Err($"Not null constraint violation: Column '{tableColumn.ColumnName}' cannot contain NULL values.");
+                    }
+                    row[tableColumn.ColumnName] = null;
                 }
             }
 

@@ -12,6 +12,7 @@ internal enum TokenType {
     Select,
     From,
     Not,
+    Unique,
 
     Varchar,
     Int,

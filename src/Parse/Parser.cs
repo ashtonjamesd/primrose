@@ -236,19 +236,26 @@ internal sealed class Parser {
             }
 
             bool canContainNull = true;
+            bool isUnique = false;
             if (Match(TokenType.Not)) {
                 Advance();
-                
+
                 var isNullToken = Expect(TokenType.Null);
                 if (!isNullToken) return Error();
 
                 canContainNull = false;
             }
 
+            if (Match(TokenType.Unique)) {
+                isUnique = true;
+                Advance();
+            }
+
             var column = new ColumnDefinition() {
                 ColumnName = columnName.Lexeme,
                 Type = type,
-                CanContainNull = canContainNull
+                CanContainNull = canContainNull,
+                IsUnique = isUnique
             };
 
             columns.Add(column);

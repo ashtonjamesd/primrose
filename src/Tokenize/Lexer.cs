@@ -28,6 +28,7 @@ internal sealed class Lexer {
         ["false"] = TokenType.False,
         ["null"] = TokenType.Null,
         ["not"] = TokenType.Not,
+        ["unique"] = TokenType.Unique,
     };
 
     private readonly Dictionary<string, TokenType> Symbols = new() {
