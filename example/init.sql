@@ -1,5 +1,5 @@
 create database master
 use master
 
-create user admin identified by 'admin'
-grant all privileges on *.* to admin
+create user primrose identified by 'primrose'
+grant all privileges on *.* to primrose

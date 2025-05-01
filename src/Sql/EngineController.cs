@@ -1,23 +1,52 @@
-using System.ComponentModel.DataAnnotations.Schema;
+using Primrose.src.Auth;
 using Primrose.src.Parse;
 using Primrose.src.Sql.Models;
 
 namespace Primrose.src.Sql;
 
 internal class EngineController {
-    public SqlDatabase? Database;
-    public List<SqlDatabase> Databases = [];
-    public List<SqlUser> Users = [];
+    public SqlDatabase? Db;
+    public SqlUser? User;
+
+    public readonly List<SqlDatabase> Databases = [];
+    public readonly Dictionary<string, List<SqlGrant>> Grants = [];
+    private readonly AuthService auth = new();
+
+    public bool HasGrant(string user, string database, string table, SqlPrivilege privilege) {
+        if (!Grants.TryGetValue(user, out List<SqlGrant>? value)) return false;
+
+        var hasGrant = value.Any(x => {
+            return x.Database == database &&
+                x.Table == table &&
+                x.Privilege == privilege;
+        });
+
+        return hasGrant;
+    }
+
+    public bool Login(string name, string pass) {
+        var user = auth.Login(name, pass);
+        if (user is null) return false;
+
+        User = user;
+
+        return true;
+    }
 
     public SqlUser? GetUser(string name) {
-        var user = Users
-            .FirstOrDefault(x => x.Name == name);
+        return auth.GetUser(name);
+    }
 
-        return user;
+    public void CreateUser(SqlUser user) {
+        auth.Users.Add(user);
+    }
+
+    public void DeleteUser(SqlUser user) {
+        auth.Users.Remove(user);
     }
 
     public SqlTable? GetTable(string name) {
-        var table = Database!.Tables
+        var table = Db!.Tables
             .FirstOrDefault(x => x.Name == name);
 
         return table;
@@ -54,7 +83,7 @@ internal class EngineController {
     }
 
     public QueryResult CheckDatabase() {
-        if (Database is null) {
+        if (Db is null) {
             return QueryResult.Err("A database target is required.");
         }
         
@@ -67,5 +96,9 @@ internal class EngineController {
 
     public QueryResult UserAlreadyExists(string name) {
         return QueryResult.Err($"User '{name}' already exists.");
+    }
+
+    public QueryResult UserNotFound(string name) {
+        return QueryResult.Err($"User '{name}' not found.");
     }
 }

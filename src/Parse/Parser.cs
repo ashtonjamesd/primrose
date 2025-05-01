@@ -158,6 +158,17 @@ internal sealed class Parser {
             privileges.Add("*");
         }
 
+        Recede();
+        do {
+            Advance();
+            if (Match(TokenType.On)) break;
+
+            var privilege = CurrentToken();
+            privileges.Add(privilege.Lexeme);
+            Advance();
+
+        } while (Match(TokenType.Comma));
+
         var isOn = Expect(TokenType.On);
         if (!isOn) return Error();
 

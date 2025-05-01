@@ -1,4 +1,3 @@
-
 using Primrose.src.Parse;
 using Primrose.src.Sql.Models;
 using Primrose.src.Tokenize;
@@ -7,11 +6,20 @@ using Primrose.src.Utils;
 namespace Primrose.src.Sql;
 
 internal sealed class SqlEngine {
-    private readonly EngineController controller = new();
+    private readonly EngineController controller;
     private readonly bool IsDebug;
 
     public SqlEngine(bool debug) {
+        controller = new();
         IsDebug = debug;
+    }
+
+    public bool Login(string name, string pass) {
+        return controller.Login(name, pass);
+    }
+
+    public SqlUser? GetUser() {
+        return controller.User;
     }
 
     public void ExecuteQuery(string query) {
@@ -52,19 +60,24 @@ internal sealed class SqlEngine {
 
     private QueryResult ExecGrant(GrantStatement grant) {
         var user = controller.GetUser(grant.ToUser);
-        if (user is not null) return controller.UserAlreadyExists(grant.ToUser);
+        if (user is null) return controller.UserNotFound(grant.ToUser);
 
-        if (grant.Privileges[0] == "*") {
-            // grant all
+        List<SqlGrant> grants = [];
+        foreach (var privilege in grant.Privileges) {
+            var sqlPrivilege = SqlMapper.MapStringToPrivilege(privilege);
+
+            var sqlGrant = new SqlGrant() {
+                Privilege = sqlPrivilege,
+                Database = grant.Database,
+                Table = grant.Table,
+                ToUser = grant.ToUser
+            };
+
+            grants.Add(sqlGrant);
         }
 
-        if (grant.Database == "*") {
-
-        }
-
-        if (grant.Table == "*") {
-
-        }
+        controller.Grants[grant.ToUser] = [];
+        controller.Grants[grant.ToUser].AddRange(grants);
 
         return QueryResult.Ok();
     }
@@ -78,7 +91,7 @@ internal sealed class SqlEngine {
             Password = createUser.Password
         };
 
-        controller.Users.Add(user);
+        controller.CreateUser(user);
 
         return QueryResult.Ok();
     }
@@ -229,16 +242,16 @@ internal sealed class SqlEngine {
             Rows = []
         };
 
-        controller.Database!.Tables.Add(table);
+        controller.Db!.Tables.Add(table);
 
         return QueryResult.Ok();
     }
 
     private QueryResult ExecDropUser(DropUserStatement dropTable) {
         var user = controller.GetUser(dropTable.UserName);
-        if (user is null) return controller.TableNotFound(dropTable.UserName);
+        if (user is null) return controller.UserNotFound(dropTable.UserName);
 
-        controller.Users.Remove(user);
+        controller.DeleteUser(user);
 
         return QueryResult.Ok();
     }
@@ -250,7 +263,7 @@ internal sealed class SqlEngine {
         var table = controller.GetTable(dropTable.TableName);
         if (table is null) return controller.TableNotFound(dropTable.TableName);
 
-        controller.Database!.Tables.Remove(table);
+        controller.Db!.Tables.Remove(table);
 
         return QueryResult.Ok();
     }
@@ -259,7 +272,7 @@ internal sealed class SqlEngine {
         var db = controller.GetDatabase(useDatabase.DatabaseName);
         if (db is null) return controller.DatabaseNotFound(useDatabase.DatabaseName);
         
-        controller.Database = db;
+        controller.Db = db;
 
         return QueryResult.Ok();
     }
