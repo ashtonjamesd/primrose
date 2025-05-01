@@ -44,8 +44,29 @@ internal sealed class SqlEngine {
             _ when stmt is InsertIntoStatement x => ExecInsertInto(x),
             _ when stmt is SelectClause x => ExecSelect(x),
             _ when stmt is CreateUserStatement x => ExecCreateUser(x),
+            _ when stmt is DropUserStatement x => ExecDropUser(x),
+            _ when stmt is GrantStatement x => ExecGrant(x),
             _ => controller.UnknownQuery()
         };
+    }
+
+    private QueryResult ExecGrant(GrantStatement grant) {
+        var user = controller.GetUser(grant.ToUser);
+        if (user is not null) return controller.UserAlreadyExists(grant.ToUser);
+
+        if (grant.Privileges[0] == "*") {
+            // grant all
+        }
+
+        if (grant.Database == "*") {
+
+        }
+
+        if (grant.Table == "*") {
+
+        }
+
+        return QueryResult.Ok();
     }
 
     private QueryResult ExecCreateUser(CreateUserStatement createUser) {
@@ -208,7 +229,16 @@ internal sealed class SqlEngine {
             Rows = []
         };
 
-        controller.CreateTable(table);
+        controller.Database!.Tables.Add(table);
+
+        return QueryResult.Ok();
+    }
+
+    private QueryResult ExecDropUser(DropUserStatement dropTable) {
+        var user = controller.GetUser(dropTable.UserName);
+        if (user is null) return controller.TableNotFound(dropTable.UserName);
+
+        controller.Users.Remove(user);
 
         return QueryResult.Ok();
     }
@@ -220,7 +250,7 @@ internal sealed class SqlEngine {
         var table = controller.GetTable(dropTable.TableName);
         if (table is null) return controller.TableNotFound(dropTable.TableName);
 
-        controller.DropTable(table);
+        controller.Database!.Tables.Remove(table);
 
         return QueryResult.Ok();
     }
@@ -243,7 +273,7 @@ internal sealed class SqlEngine {
             Tables = []
         };
 
-        controller.CreateDatabase(db);
+        controller.Databases.Add(db);
 
         return QueryResult.Ok();
     }
@@ -252,7 +282,7 @@ internal sealed class SqlEngine {
         var db = controller.GetDatabase(createDatabase.DatabaseName);
         if (db is null) return controller.DatabaseNotFound(createDatabase.DatabaseName);
 
-        controller.DropDatabase(db);
+        controller.Databases.Remove(db);
 
         return QueryResult.Ok();
     }

@@ -19,6 +19,11 @@ internal enum TokenType {
     User,
     Identified,
     By,
+    Grant,
+    All,
+    Privileges,
+    On,
+    To,
 
     Plus,
     Minus,
@@ -28,6 +33,7 @@ internal enum TokenType {
     Ampersand,
     Pipe,
     Caret,
+    Dot,
 
     Equals,
     NotEquals,

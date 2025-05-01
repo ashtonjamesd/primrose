@@ -53,22 +53,6 @@ internal class EngineController {
         return QueryResult.Err($"Database '{database}' not found.");
     }
 
-    public void CreateDatabase(SqlDatabase db) {
-        Databases.Add(db);
-    }
-
-    public void DropDatabase(SqlDatabase db) {
-        Databases.Remove(db);
-    }
-
-    public void CreateTable(SqlTable table) {
-        Database!.Tables.Add(table);
-    }
-
-    public void DropTable(SqlTable table) {
-        Database!.Tables.Remove(table);
-    }
-
     public QueryResult CheckDatabase() {
         if (Database is null) {
             return QueryResult.Err("A database target is required.");

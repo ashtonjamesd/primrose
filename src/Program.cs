@@ -1,4 +1,5 @@
-﻿using Primrose.src.Sql;
+﻿using Primrose.src.Auth;
+using Primrose.src.Sql;
 
 namespace Primrose.src;
 
@@ -10,9 +11,11 @@ internal class Program {
         Console.WriteLine("Database connected.\n");
 
         //
-            db.ExecuteQuery(File.ReadAllText("example/test.sql"));
+            db.ExecuteQuery(File.ReadAllText("example/init.sql"));
         //
         return;
+
+        var auth = new AuthService();
 
         while (true) {
             Console.Write("> ");

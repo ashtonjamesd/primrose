@@ -1,5 +1,3 @@
-using System.Data;
-using System.Numerics;
 using Primrose.src.Tokenize;
 
 namespace Primrose.src.Parse;
@@ -42,6 +40,13 @@ internal sealed class SelectClause : Statement {
     public required List<string> Columns { get; set; }
 }
 
+internal sealed class GrantStatement : Statement {
+    public required List<string> Privileges { get; set; }
+    public required string Database { get; set; }
+    public required string Table { get; set; }
+    public required string ToUser { get; set; }
+}
+
 internal sealed class IdentifierExpression : Statement {
     public required string Value { get; set; }
 }
@@ -74,6 +79,11 @@ internal sealed class CreateUserStatement : Statement {
     public required string Password { get; set; }
 }
 
+internal sealed class LoginUserStatement : Statement {
+    public required string Name { get; set; }
+    public required string Password { get; set; }
+}
+
 internal sealed class ColumnDefinition {
     public required string ColumnName { get; set; }
     public required SqlType Type { get; set; }
@@ -87,6 +97,10 @@ internal sealed class InsertValues {
 
 internal sealed class DropTableStatement : Statement {
     public required string TableName { get; set; }
+}
+
+internal sealed class DropUserStatement : Statement {
+    public required string UserName { get; set; }
 }
 
 internal sealed class BadStatement : Statement {

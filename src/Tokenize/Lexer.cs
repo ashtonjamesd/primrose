@@ -35,6 +35,11 @@ internal sealed class Lexer {
         ["user"] = TokenType.User,
         ["identified"] = TokenType.Identified,
         ["by"] = TokenType.By,
+        ["grant"] = TokenType.Grant,
+        ["all"] = TokenType.All,
+        ["privileges"] = TokenType.Privileges,
+        ["on"] = TokenType.On,
+        ["to"] = TokenType.To,
     };
 
     private readonly Dictionary<string, TokenType> SingleSymbols = new() {
@@ -54,6 +59,7 @@ internal sealed class Lexer {
         ["&"] = TokenType.Ampersand,
         ["|"] = TokenType.Pipe,
         ["^"] = TokenType.Caret,
+        ["."] = TokenType.Dot,
     };
 
     private readonly Dictionary<string, TokenType> DoubleSymbols = new() {
@@ -172,6 +178,7 @@ internal sealed class Lexer {
                 return NewToken(str, secondType);
             }
 
+            Current--;
             return NewToken(first, firstType);
         }
 

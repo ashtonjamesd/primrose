@@ -37,6 +37,9 @@ internal sealed class Parser {
         else if (stmt is DropTableStatement dropTable) {
             Console.WriteLine($"drop table {dropTable.TableName}");
         }
+        else if (stmt is DropUserStatement dropUser) {
+            Console.WriteLine($"drop user {dropUser.UserName}");
+        }
         else if (stmt is CreateDatabaseStatement createDatabase) {
             Console.WriteLine($"create database {createDatabase.DatabaseName}");
         }
@@ -69,7 +72,14 @@ internal sealed class Parser {
         else if (stmt is CreateUserStatement createUser) {
             Console.WriteLine("create user");
             Console.Write(new string(' ', (depth + 1) * 2) + $"user: {createUser.Name}\n");
-            Console.Write(new string(' ', (depth + 1) * 2) + $"pass: {createUser.Password}");
+            Console.WriteLine(new string(' ', (depth + 1) * 2) + $"pass: {createUser.Password}");
+        }
+        else if (stmt is GrantStatement grant) {
+            Console.WriteLine("grant");
+            var privs = string.Join(", ", grant.Privileges);
+            Console.Write(new string(' ', (depth + 1) * 2) + $"privileges: {privs}\n");
+            Console.Write(new string(' ', (depth + 1) * 2) + $"on: {grant.Database}.{grant.Table}\n");
+            Console.Write(new string(' ', (depth + 1) * 2) + $"to: {grant.ToUser}\n");
         }
         else if (stmt is BinaryExpression binary) {
             Console.WriteLine($"BinaryExpression ({binary.Op.Lexeme})");
@@ -129,7 +139,51 @@ internal sealed class Parser {
             TokenType.Insert => ParseInsertInto(),
             TokenType.Select => ParseSelect(),
             TokenType.Where => ParseWhere(),
+            TokenType.Grant => ParseGrant(),
             _ => UnknownStatement(c.Lexeme)
+        };
+    }
+
+    private Statement ParseGrant() {
+        var isGrant = Expect(TokenType.Grant);
+        if (!isGrant) return Error();
+
+        List<string> privileges = [];
+        if (Match(TokenType.All)) {
+            Advance();
+
+            var isPrivileges = Expect(TokenType.Privileges);
+            if (!isPrivileges) return Error();
+
+            privileges.Add("*");
+        }
+
+        var isOn = Expect(TokenType.On);
+        if (!isOn) return Error();
+
+        var database = CurrentToken();
+        if (!Match(TokenType.Star) && !Match(TokenType.Identifier)) return Error();
+        Advance();
+
+        var isDot = Expect(TokenType.Dot);
+        if (!isDot) return Error();
+
+        var table = CurrentToken();
+        if (!Match(TokenType.Star) && !Match(TokenType.Identifier)) return Error();
+        Advance();
+
+        var isTo = Expect(TokenType.To);
+        if (!isTo) return Error();
+
+        var userNameToken = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+        Advance();
+
+        return new GrantStatement() {
+            Privileges = privileges,
+            Database = database.Lexeme,
+            Table = table.Lexeme,
+            ToUser = userNameToken.Lexeme
         };
     }
 
@@ -176,11 +230,27 @@ internal sealed class Parser {
         return next.Type switch {
             TokenType.Table => ParseDropTable(),
             TokenType.Database => ParseDropDatabase(),
+            TokenType.User => ParseDropUser(),
             _ => UnknownStatement(next.Lexeme)
         }; 
     }
 
-    private Statement UnknownStatement(string stmt) {
+    private Statement ParseDropUser() {
+        var isDrop = Expect(TokenType.Drop);
+        if (!isDrop) return Error();
+
+        var isUser =  Expect(TokenType.User);
+        if (!isUser) return Error();
+
+        var userNameToken = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+        
+        return new DropUserStatement() {
+            UserName = userNameToken.Lexeme
+        };
+    }
+
+    private static Statement UnknownStatement(string stmt) {
         return new BadStatement() {
             Error = $"Invalid statement: {stmt}"
         };
