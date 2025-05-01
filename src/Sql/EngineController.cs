@@ -1,11 +1,20 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using Primrose.src.Parse;
+using Primrose.src.Sql.Models;
 
 namespace Primrose.src.Sql;
 
 internal class EngineController {
     public SqlDatabase? Database;
     public List<SqlDatabase> Databases = [];
+    public List<SqlUser> Users = [];
+
+    public SqlUser? GetUser(string name) {
+        var user = Users
+            .FirstOrDefault(x => x.Name == name);
+
+        return user;
+    }
 
     public SqlTable? GetTable(string name) {
         var table = Database!.Tables
@@ -70,5 +79,9 @@ internal class EngineController {
 
     public QueryResult UnknownQuery() {
         return QueryResult.Err("Unknown query attempted to execute.");
+    }
+
+    public QueryResult UserAlreadyExists(string name) {
+        return QueryResult.Err($"User '{name}' already exists.");
     }
 }

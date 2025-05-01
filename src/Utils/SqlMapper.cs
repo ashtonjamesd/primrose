@@ -1,6 +1,7 @@
+using Primrose.src.Parse;
 using Primrose.src.Tokenize;
 
-namespace  Primrose.src.Parse;
+namespace Primrose.src.Utils;
 
 internal sealed class SqlMapper {
     public static SqlType MapTokenToType(Token token) {

@@ -1,6 +1,6 @@
 using Primrose.src.Parse;
 
-namespace Primrose.src.Sql;
+namespace Primrose.src.Sql.Models;
 
 internal sealed class SqlTable {
     public required string Name { get; set; }

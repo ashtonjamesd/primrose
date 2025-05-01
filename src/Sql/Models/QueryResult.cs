@@ -1,4 +1,4 @@
-namespace Primrose.src.Sql;
+namespace Primrose.src.Sql.Models;
 
 internal sealed class QueryResult {
     public required int RowsAffected { get; set; }

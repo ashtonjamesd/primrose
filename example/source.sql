@@ -13,3 +13,4 @@ values ('c', 'a', 'a', 'c'),
 ('c', 'dddd', 'a', 'a')
 
 select * from myTable
+where fieldB = 'a'

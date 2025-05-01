@@ -16,6 +16,9 @@ internal enum TokenType {
     Where,
     And,
     Or,
+    User,
+    Identified,
+    By,
 
     Plus,
     Minus,

@@ -1,3 +1,4 @@
+using System.Data;
 using System.Numerics;
 using Primrose.src.Tokenize;
 
@@ -66,6 +67,11 @@ internal sealed class BinaryExpression : Statement {
 internal sealed class UnaryExpression : Statement {
     public required Statement Right { get; set; }
     public required Token Op { get; set; }
+}
+
+internal sealed class CreateUserStatement : Statement {
+    public required string Name { get; set; }
+    public required string Password { get; set; }
 }
 
 internal sealed class ColumnDefinition {

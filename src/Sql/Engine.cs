@@ -1,5 +1,8 @@
+
 using Primrose.src.Parse;
+using Primrose.src.Sql.Models;
 using Primrose.src.Tokenize;
+using Primrose.src.Utils;
 
 namespace Primrose.src.Sql;
 
@@ -40,8 +43,23 @@ internal sealed class SqlEngine {
             _ when stmt is DropDatabaseStatement x => ExecDropDatabase(x),
             _ when stmt is InsertIntoStatement x => ExecInsertInto(x),
             _ when stmt is SelectClause x => ExecSelect(x),
+            _ when stmt is CreateUserStatement x => ExecCreateUser(x),
             _ => controller.UnknownQuery()
         };
+    }
+
+    private QueryResult ExecCreateUser(CreateUserStatement createUser) {
+        var existingUser = controller.GetUser(createUser.Name);
+        if (existingUser is not null) return controller.UserAlreadyExists(createUser.Name);
+
+        var user = new SqlUser() {
+            Name = createUser.Name,
+            Password = createUser.Password
+        };
+
+        controller.Users.Add(user);
+
+        return QueryResult.Ok();
     }
 
     private QueryResult ExecSelect(SelectClause select) {

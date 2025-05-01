@@ -1,4 +1,4 @@
-namespace Primrose.src.Sql;
+namespace Primrose.src.Sql.Models;
 
 internal sealed class SqlDatabase {
     public required string Name { get; set; }

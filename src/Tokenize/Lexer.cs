@@ -32,6 +32,9 @@ internal sealed class Lexer {
         ["where"] = TokenType.Where,
         ["and"] = TokenType.And,
         ["or"] = TokenType.Or,
+        ["user"] = TokenType.User,
+        ["identified"] = TokenType.Identified,
+        ["by"] = TokenType.By,
     };
 
     private readonly Dictionary<string, TokenType> SingleSymbols = new() {

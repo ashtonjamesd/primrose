@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Primrose.src.Tokenize;
+using Primrose.src.Utils;
 
 namespace Primrose.src.Parse;
 
@@ -61,9 +62,14 @@ internal sealed class Parser {
             Console.WriteLine(string.Join(", ", select.Columns));
             Console.WriteLine(new string(' ', (depth + 1) * 2) + $"from: {select.TableName}");
         }
-         else if (stmt is WhereClause where) {
+        else if (stmt is WhereClause where) {
             Console.WriteLine("where");
             PrintStatement(where.Condition, depth + 1);
+        }
+        else if (stmt is CreateUserStatement createUser) {
+            Console.WriteLine("create user");
+            Console.Write(new string(' ', (depth + 1) * 2) + $"user: {createUser.Name}\n");
+            Console.Write(new string(' ', (depth + 1) * 2) + $"pass: {createUser.Password}");
         }
         else if (stmt is BinaryExpression binary) {
             Console.WriteLine($"BinaryExpression ({binary.Op.Lexeme})");
@@ -133,8 +139,35 @@ internal sealed class Parser {
         return next.Type switch {
             TokenType.Table => ParseCreateTable(),
             TokenType.Database => ParseCreateDatabase(),
+            TokenType.User => ParseCreateUser(),
             _ => UnknownStatement(next.Lexeme)
         }; 
+    }
+
+    private Statement ParseCreateUser() {
+        var isCreate = Expect(TokenType.Create);
+        if (!isCreate) return Error();
+
+        var isUser = Expect(TokenType.User);
+        if (!isUser) return Error();
+
+        var nameToken = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+        Advance();
+
+        var isIdentified = Expect(TokenType.Identified);
+        if (!isIdentified) return Error();
+        
+        var isBy = Expect(TokenType.By);
+        if (!isBy) return Error();
+
+        var passwordToken = CurrentToken();
+        if (!Match(TokenType.String)) return Error();
+
+        return new CreateUserStatement() {
+                Name = nameToken.Lexeme,
+                Password = passwordToken.Lexeme
+        };
     }
 
     private Statement ParseDrop() {
