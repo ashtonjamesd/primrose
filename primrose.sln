@@ -1,8 +1,10 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "primrose", "primrose.csproj", "{FCF09DD7-F871-E01B-DE06-CAC981592285}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Primrose.Tests", "Primrose.Tests\Primrose.Tests.csproj", "{60422C08-9EFA-40C2-A790-6E6EB977CF4E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "primrose", "Primrose\primrose.csproj", "{375F8A40-8955-4895-9CF7-7B93E0E6BD12}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -10,10 +12,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{FCF09DD7-F871-E01B-DE06-CAC981592285}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{FCF09DD7-F871-E01B-DE06-CAC981592285}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{FCF09DD7-F871-E01B-DE06-CAC981592285}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{FCF09DD7-F871-E01B-DE06-CAC981592285}.Release|Any CPU.Build.0 = Release|Any CPU
+		{60422C08-9EFA-40C2-A790-6E6EB977CF4E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{60422C08-9EFA-40C2-A790-6E6EB977CF4E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{60422C08-9EFA-40C2-A790-6E6EB977CF4E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{60422C08-9EFA-40C2-A790-6E6EB977CF4E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{375F8A40-8955-4895-9CF7-7B93E0E6BD12}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{375F8A40-8955-4895-9CF7-7B93E0E6BD12}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{375F8A40-8955-4895-9CF7-7B93E0E6BD12}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{375F8A40-8955-4895-9CF7-7B93E0E6BD12}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
