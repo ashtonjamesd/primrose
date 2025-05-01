@@ -78,8 +78,13 @@ internal sealed class Parser {
             Console.WriteLine("grant");
             var privs = string.Join(", ", grant.Privileges);
             Console.Write(new string(' ', (depth + 1) * 2) + $"privileges: {privs}\n");
-            Console.Write(new string(' ', (depth + 1) * 2) + $"on: {grant.Database}.{grant.Table}\n");
+            Console.Write(new string(' ', (depth + 1) * 2) + $"on: {grant.Database}.{grant.TableName}\n");
             Console.Write(new string(' ', (depth + 1) * 2) + $"to: {grant.ToUser}\n");
+        }
+        else if (stmt is LoginUserStatement loginUser) {
+            Console.WriteLine("login user");
+            Console.Write(new string(' ', (depth + 1) * 2) + $"user: {loginUser.Name}\n");
+            Console.WriteLine(new string(' ', (depth + 1) * 2) + $"pass: {loginUser.Password}");
         }
         else if (stmt is BinaryExpression binary) {
             Console.WriteLine($"BinaryExpression ({binary.Op.Lexeme})");
@@ -140,7 +145,34 @@ internal sealed class Parser {
             TokenType.Select => ParseSelect(),
             TokenType.Where => ParseWhere(),
             TokenType.Grant => ParseGrant(),
+            TokenType.Login => ParseLogin(),
             _ => UnknownStatement(c.Lexeme)
+        };
+    }
+
+    private Statement ParseLogin() {
+        var isCreate = Expect(TokenType.Login);
+        if (!isCreate) return Error();
+
+        var isUser = Expect(TokenType.User);
+        if (!isUser) return Error();
+
+        var nameToken = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+        Advance();
+
+        var isIdentified = Expect(TokenType.Identified);
+        if (!isIdentified) return Error();
+        
+        var isBy = Expect(TokenType.By);
+        if (!isBy) return Error();
+
+        var passwordToken = CurrentToken();
+        if (!Match(TokenType.String)) return Error();
+
+        return new LoginUserStatement() {
+            Name = nameToken.Lexeme,
+            Password = passwordToken.Lexeme
         };
     }
 
@@ -164,8 +196,21 @@ internal sealed class Parser {
             if (Match(TokenType.On)) break;
 
             var privilege = CurrentToken();
-            privileges.Add(privilege.Lexeme);
-            Advance();
+            if (!SqlTypeHelper.IsTokenPrivilegeMatch(privilege)) return Error();
+
+            if (Match(TokenType.Create)) {
+                Advance();
+
+                if (Match(TokenType.User)) {
+                    var userToken = CurrentToken();
+                    privileges.Add($"{privilege.Lexeme} {userToken.Lexeme}");
+                    Advance();
+                }
+            } 
+            else {
+                privileges.Add(privilege.Lexeme);
+                Advance();
+            }
 
         } while (Match(TokenType.Comma));
 
@@ -188,12 +233,26 @@ internal sealed class Parser {
 
         var userNameToken = CurrentToken();
         if (!Match(TokenType.Identifier)) return Error();
-        Advance();
+
+        // Advance();
+
+        // if (Match(TokenType.With)) {
+        //     var isGrantSecond = Expect(TokenType.Grant);
+        //     if (!isGrantSecond) return Error();
+
+        //     var isOption = Expect(TokenType.Option);
+        //     if (!isOption) return Error();
+
+        //     Recede();
+        // }
+        // else {
+        //     Recede();
+        // }
 
         return new GrantStatement() {
             Privileges = privileges,
             Database = database.Lexeme,
-            Table = table.Lexeme,
+            TableName = table.Lexeme,
             ToUser = userNameToken.Lexeme
         };
     }
@@ -230,8 +289,8 @@ internal sealed class Parser {
         if (!Match(TokenType.String)) return Error();
 
         return new CreateUserStatement() {
-                Name = nameToken.Lexeme,
-                Password = passwordToken.Lexeme
+            Name = nameToken.Lexeme,
+            Password = passwordToken.Lexeme
         };
     }
 

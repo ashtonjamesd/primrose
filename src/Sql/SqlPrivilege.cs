@@ -1,7 +1,7 @@
 namespace Primrose.src.Sql;
 
 internal enum SqlPrivilege {
-    all,
+    All,
 
     Select,
     Insert,
@@ -10,5 +10,6 @@ internal enum SqlPrivilege {
     Create,
     Alter,
     Drop,
-    unknown,
+    Grant,
+    Unknown,
 }

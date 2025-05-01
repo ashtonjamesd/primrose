@@ -24,6 +24,9 @@ internal enum TokenType {
     Privileges,
     On,
     To,
+    Login,
+    With,
+    Option,
 
     Plus,
     Minus,

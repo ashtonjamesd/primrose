@@ -40,6 +40,9 @@ internal sealed class Lexer {
         ["privileges"] = TokenType.Privileges,
         ["on"] = TokenType.On,
         ["to"] = TokenType.To,
+        ["login"] = TokenType.Login,
+        ["with"] = TokenType.With,
+        ["option"] = TokenType.Option,
     };
 
     private readonly Dictionary<string, TokenType> SingleSymbols = new() {

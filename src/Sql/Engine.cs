@@ -1,3 +1,4 @@
+using System.Security;
 using Primrose.src.Parse;
 using Primrose.src.Sql.Models;
 using Primrose.src.Tokenize;
@@ -20,6 +21,10 @@ internal sealed class SqlEngine {
 
     public SqlUser? GetUser() {
         return controller.User;
+    }
+
+    public void DisableBootstrap() {
+        controller.DisableBootstrap();
     }
 
     public void ExecuteQuery(string query) {
@@ -46,21 +51,47 @@ internal sealed class SqlEngine {
         return stmt switch {
             _ when stmt is CreateTableStatement x => ExecCreateTable(x),
             _ when stmt is DropTableStatement x => ExecDropTable(x),
-            _ when stmt is UseDatabaseStatement x => ExecUseDatabase(x),
+
             _ when stmt is CreateDatabaseStatement x => ExecCreateDatabase(x),
             _ when stmt is DropDatabaseStatement x => ExecDropDatabase(x),
-            _ when stmt is InsertIntoStatement x => ExecInsertInto(x),
+            _ when stmt is UseDatabaseStatement x => ExecUseDatabase(x),
+
             _ when stmt is SelectClause x => ExecSelect(x),
+            _ when stmt is InsertIntoStatement x => ExecInsertInto(x),
+            
             _ when stmt is CreateUserStatement x => ExecCreateUser(x),
             _ when stmt is DropUserStatement x => ExecDropUser(x),
+
+            _ when stmt is LoginUserStatement x => ExecLoginUser(x),
+            
             _ when stmt is GrantStatement x => ExecGrant(x),
             _ => controller.UnknownQuery()
         };
     }
 
+    private QueryResult ExecLoginUser(LoginUserStatement loginUser) {
+        var user = controller.GetUser(loginUser.Name);
+        if (user is null) return controller.UserNotFound(loginUser.Name);
+
+        Login(loginUser.Name, loginUser.Password);
+        return QueryResult.Ok();
+    }
+
     private QueryResult ExecGrant(GrantStatement grant) {
+        var err = controller.CheckDatabase();
+        if (!err.IsSuccess) return err;
+
+        var table = controller.GetTable(grant.TableName);
+        if (table is null && grant.TableName != "*") return controller.TableNotFound(grant.TableName);
+
         var user = controller.GetUser(grant.ToUser);
         if (user is null) return controller.UserNotFound(grant.ToUser);
+
+        var hasGrant = controller.HasNonObjectGrant(
+            controller.User!.Name,
+            SqlPrivilege.Grant
+        );
+        if (!hasGrant) return controller.PermissionDenied();
 
         List<SqlGrant> grants = [];
         foreach (var privilege in grant.Privileges) {
@@ -69,7 +100,7 @@ internal sealed class SqlEngine {
             var sqlGrant = new SqlGrant() {
                 Privilege = sqlPrivilege,
                 Database = grant.Database,
-                Table = grant.Table,
+                Table = grant.TableName,
                 ToUser = grant.ToUser
             };
 
@@ -85,6 +116,12 @@ internal sealed class SqlEngine {
     private QueryResult ExecCreateUser(CreateUserStatement createUser) {
         var existingUser = controller.GetUser(createUser.Name);
         if (existingUser is not null) return controller.UserAlreadyExists(createUser.Name);
+
+        var hasGrant = controller.HasNonObjectGrant(
+            controller.User?.Name ?? "",
+            SqlPrivilege.Create
+        );
+        if (!hasGrant) return controller.PermissionDenied();
 
         var user = new SqlUser() {
             Name = createUser.Name,
@@ -102,6 +139,14 @@ internal sealed class SqlEngine {
 
         var table = controller.GetTable(select.TableName);
         if (table is null) return controller.TableNotFound(select.TableName);
+
+        var hasGrant = controller.HasGrant(
+            controller.User!.Name,
+            controller.Database!.Name,
+            select.TableName,
+            SqlPrivilege.Select
+        );
+        if (!hasGrant) return controller.PermissionDenied();
 
         const string leftWhitespaceGap = "";
         var columnWidths = table.Columns.Select((col, index) => {
@@ -153,6 +198,9 @@ internal sealed class SqlEngine {
         var err = controller.CheckDatabase();
         if (!err.IsSuccess) return err;
 
+        var table = controller.GetTable(insertInto.TableName);
+        if (table is null) return controller.TableNotFound(insertInto.TableName);
+
         for (int i = 0; i < insertInto.ValuesList.Count; i++) {
             var valueList = insertInto.ValuesList[i];
 
@@ -161,8 +209,13 @@ internal sealed class SqlEngine {
             }
         }
 
-        var table = controller.GetTable(insertInto.TableName);
-        if (table is null) return controller.TableNotFound(insertInto.TableName);
+        var hasGrant = controller.HasGrant(
+            controller.User!.Name,
+            controller.Database!.Name,
+            insertInto.TableName,
+            SqlPrivilege.Insert
+        );
+        if (!hasGrant) return controller.PermissionDenied();
 
         foreach (var column in insertInto.ColumnNames) {
             var foundColumn = table.Columns
@@ -229,6 +282,14 @@ internal sealed class SqlEngine {
         var existingTable = controller.GetTable(createTable.TableName);
         if (existingTable is not null) return controller.TableAlreadyExists(createTable.TableName);
 
+        var hasGrant = controller.HasGrant(
+            controller.User!.Name,
+            controller.Database!.Name,
+            createTable.TableName,
+            SqlPrivilege.Create
+        );
+        if (!hasGrant) return controller.PermissionDenied();
+
         var columnSet = new HashSet<string>();
         foreach (var column in createTable.Columns) {
             if (!columnSet.Add(column.ColumnName)) {
@@ -242,14 +303,20 @@ internal sealed class SqlEngine {
             Rows = []
         };
 
-        controller.Db!.Tables.Add(table);
+        controller.Database!.Tables.Add(table);
 
         return QueryResult.Ok();
     }
 
-    private QueryResult ExecDropUser(DropUserStatement dropTable) {
-        var user = controller.GetUser(dropTable.UserName);
-        if (user is null) return controller.UserNotFound(dropTable.UserName);
+    private QueryResult ExecDropUser(DropUserStatement dropUser) {
+        var user = controller.GetUser(dropUser.UserName);
+        if (user is null) return controller.UserNotFound(dropUser.UserName);
+
+        var hasGrant = controller.HasNonObjectGrant(
+            controller.User!.Name,
+            SqlPrivilege.Drop
+        );
+        if (!hasGrant) return controller.PermissionDenied();
 
         controller.DeleteUser(user);
 
@@ -263,7 +330,15 @@ internal sealed class SqlEngine {
         var table = controller.GetTable(dropTable.TableName);
         if (table is null) return controller.TableNotFound(dropTable.TableName);
 
-        controller.Db!.Tables.Remove(table);
+        var hasGrant = controller.HasGrant(
+            controller.User!.Name,
+            controller.Database!.Name,
+            dropTable.TableName,
+            SqlPrivilege.Drop
+        );
+        if (!hasGrant) return controller.PermissionDenied();
+
+        controller.Database!.Tables.Remove(table);
 
         return QueryResult.Ok();
     }
@@ -272,7 +347,7 @@ internal sealed class SqlEngine {
         var db = controller.GetDatabase(useDatabase.DatabaseName);
         if (db is null) return controller.DatabaseNotFound(useDatabase.DatabaseName);
         
-        controller.Db = db;
+        controller.Database = db;
 
         return QueryResult.Ok();
     }
@@ -280,6 +355,12 @@ internal sealed class SqlEngine {
     private QueryResult ExecCreateDatabase(CreateDatabaseStatement createDatabase) {
         var existingDb = controller.GetDatabase(createDatabase.DatabaseName);
         if (existingDb is not null) return controller.DatabaseAlreadyExists(createDatabase.DatabaseName);
+
+        var hasGrant = controller.HasNonObjectGrant(
+            controller.User!.Name,
+            SqlPrivilege.Create
+        );
+        if (!hasGrant) return controller.PermissionDenied();
 
         var db = new SqlDatabase() {
             Name = createDatabase.DatabaseName,
@@ -294,6 +375,12 @@ internal sealed class SqlEngine {
     private QueryResult ExecDropDatabase(DropDatabaseStatement createDatabase) {
         var db = controller.GetDatabase(createDatabase.DatabaseName);
         if (db is null) return controller.DatabaseNotFound(createDatabase.DatabaseName);
+
+        var hasGrant = controller.HasNonObjectGrant(
+            controller.User!.Name,
+            SqlPrivilege.Drop
+        );
+        if (!hasGrant) return controller.PermissionDenied();
 
         controller.Databases.Remove(db);
 

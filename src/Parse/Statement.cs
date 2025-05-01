@@ -28,7 +28,6 @@ internal sealed class DropDatabaseStatement : Statement {
 internal sealed class UseDatabaseStatement : Statement {
     public required string DatabaseName { get; set; }
 }
-
 internal sealed class InsertIntoStatement : Statement {
     public required string TableName { get; set; }
     public required List<string> ColumnNames { get; set; }
@@ -43,7 +42,7 @@ internal sealed class SelectClause : Statement {
 internal sealed class GrantStatement : Statement {
     public required List<string> Privileges { get; set; }
     public required string Database { get; set; }
-    public required string Table { get; set; }
+    public required string TableName { get; set; }
     public required string ToUser { get; set; }
 }
 

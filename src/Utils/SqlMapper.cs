@@ -17,7 +17,7 @@ internal sealed class SqlMapper {
 
     public static SqlPrivilege MapStringToPrivilege(string privilege) {
         return privilege switch {
-            "*" or "all" or "all privileges" => SqlPrivilege.all,
+            "*" or "all" or "all privileges" => SqlPrivilege.All,
             "select" => SqlPrivilege.Select,
             "insert" => SqlPrivilege.Insert,
             "create" => SqlPrivilege.Create,
@@ -25,7 +25,8 @@ internal sealed class SqlMapper {
             "delete" => SqlPrivilege.Delete,
             "drop" => SqlPrivilege.Drop,
             "update" => SqlPrivilege.Update,
-            _ => SqlPrivilege.unknown
+            "with grant option" => SqlPrivilege.Grant,
+            _ => SqlPrivilege.Unknown
         }; 
     }
 }

@@ -30,4 +30,18 @@ internal static class SqlTypeHelper {
             _ => false
         };
     }
+
+    public static bool IsTokenPrivilegeMatch(Token token) {
+        List<TokenType> allowedTokens = [
+            TokenType.Select,
+            TokenType.Insert,
+            // TokenType.Update,
+            // TokenType.Delete,
+            TokenType.Create,
+            // TokenType.Alter,
+            TokenType.Drop,
+        ];
+
+        return allowedTokens.Contains(token.Type);
+    }
 }
