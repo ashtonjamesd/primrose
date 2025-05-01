@@ -25,14 +25,15 @@ internal sealed class Parser {
 
     private static void PrintStatement(Statement stmt, int depth) {
         Console.Write(new string(' ', depth * 2));
-        
+
         if (stmt is CreateTableStatement createTable) {
             Console.WriteLine($"create table {createTable.TableName}");
             foreach (var col in createTable.Columns) {
-                Console.Write(new string(' ', depth * 2));
-                Console.WriteLine($"  {col.ColumnName}: {col.Type}");
+                Console.Write(new string(' ', (depth + 1) * 2));
+                Console.WriteLine($"{col.ColumnName}: {col.Type}");
             }
-        } else if (stmt is DropTableStatement dropTable) {
+        }
+        else if (stmt is DropTableStatement dropTable) {
             Console.WriteLine($"drop table {dropTable.TableName}");
         }
         else if (stmt is CreateDatabaseStatement createDatabase) {
@@ -46,33 +47,56 @@ internal sealed class Parser {
         }
         else if (stmt is InsertIntoStatement insertInto) {
             Console.WriteLine($"insert into {insertInto.TableName}");
-            Console.Write(new string(' ', depth * 3) + "columns: ");
-            foreach (var column in insertInto.ColumnNames) {
-                Console.Write($"{column}, ");
-            }
-            Console.WriteLine();
-            
-            Console.Write(new string(' ', depth * 3) + $"values list ({insertInto.ValuesList.Count}):\n");
+            Console.Write(new string(' ', (depth + 1) * 2) + "columns: ");
+            Console.WriteLine(string.Join(", ", insertInto.ColumnNames));
+            Console.WriteLine(new string(' ', (depth + 1) * 2) + $"values list ({insertInto.ValuesList.Count}):");
             for (int i = 0; i < insertInto.ValuesList.Count; i++) {
-                Console.Write(new string(' ', depth * 5) + $"values ({i}): ");
-
-                foreach (var value in insertInto.ValuesList[i].Values) {
-                    Console.Write($"{value.Lexeme}, ");
-                }
-                Console.WriteLine();
+                Console.Write(new string(' ', (depth + 2) * 2) + $"values ({i}): ");
+                Console.WriteLine(string.Join(", ", insertInto.ValuesList[i].Values.Select(v => v.Lexeme)));
             }
         }
-        else if (stmt is SelectStatement select ) {
+        else if (stmt is SelectClause select) {
             Console.WriteLine("select");
-            Console.Write(new string(' ', depth * 3) + "columns: ");
-            foreach (var column in select.Columns) {
-                Console.WriteLine(column);
-            }
-            Console.WriteLine();
-            Console.Write(new string(' ', depth * 3));
-            Console.WriteLine($"from: {select.TableName}");
+            Console.Write(new string(' ', (depth + 1) * 2) + "columns: ");
+            Console.WriteLine(string.Join(", ", select.Columns));
+            Console.WriteLine(new string(' ', (depth + 1) * 2) + $"from: {select.TableName}");
+        }
+         else if (stmt is WhereClause where) {
+            Console.WriteLine("where");
+            PrintStatement(where.Condition, depth + 1);
+        }
+        else if (stmt is BinaryExpression binary) {
+            Console.WriteLine($"BinaryExpression ({binary.Op.Lexeme})");
+            Console.Write(new string(' ', (depth + 1) * 2) + "Left:\n");
+            PrintStatement(binary.Left, depth + 2);
+            Console.Write(new string(' ', (depth + 1) * 2) + "Right:\n");
+            PrintStatement(binary.Right, depth + 2);
+        }
+        else if (stmt is UnaryExpression unary) {
+            Console.WriteLine($"UnaryExpression ({unary.Op.Lexeme})");
+            Console.Write(new string(' ', (depth + 1) * 2) + "Right:\n");
+            PrintStatement(unary.Right, depth + 2);
+        }
+        else if (stmt is IdentifierExpression ident) {
+            Console.WriteLine($"Identifier: {ident.Value}");
+        }
+        else if (stmt is NumericExpression num) {
+            Console.WriteLine($"Number: {num.Value}");
+        }
+        else if (stmt is StringExpression str) {
+            Console.WriteLine($"String: \"{str.Value}\"");
+        }
+        else if (stmt is BoolExpression b) {
+            Console.WriteLine($"Bool: {b.Value}");
+        }
+        else if (stmt is BadStatement bad) {
+            Console.WriteLine($"Bad Statement: {bad.Error}");
+        }
+        else {
+            Console.WriteLine("UNKNOWN STATEMENT IN AST");
         }
     }
+
 
     public SqlAst CreateAst() {
         while (!IsLast()) {
@@ -98,6 +122,7 @@ internal sealed class Parser {
             TokenType.Use => ParseUseDatabase(),
             TokenType.Insert => ParseInsertInto(),
             TokenType.Select => ParseSelect(),
+            TokenType.Where => ParseWhere(),
             _ => UnknownStatement(c.Lexeme)
         };
     }
@@ -108,7 +133,7 @@ internal sealed class Parser {
         return next.Type switch {
             TokenType.Table => ParseCreateTable(),
             TokenType.Database => ParseCreateDatabase(),
-            _                => UnknownStatement(next.Lexeme)
+            _ => UnknownStatement(next.Lexeme)
         }; 
     }
 
@@ -118,7 +143,7 @@ internal sealed class Parser {
         return next.Type switch {
             TokenType.Table => ParseDropTable(),
             TokenType.Database => ParseDropDatabase(),
-            _                => UnknownStatement(next.Lexeme)
+            _ => UnknownStatement(next.Lexeme)
         }; 
     }
 
@@ -141,7 +166,7 @@ internal sealed class Parser {
         var tableNameToken = CurrentToken();
         if (!Match(TokenType.Identifier)) return Error();
 
-        return new SelectStatement() {
+        return new SelectClause() {
             TableName = tableNameToken.Lexeme,
             Columns = []
         };
@@ -272,6 +297,178 @@ internal sealed class Parser {
         };
     }
 
+    private Statement ParsePrimary() {
+        var token = CurrentToken();
+
+        if (token.Type is TokenType.Identifier) {
+            return new IdentifierExpression() {
+                Value = token.Lexeme
+            };
+        } 
+        else if (token.Type is TokenType.Numeric) {
+            return new NumericExpression() {
+                Value = int.Parse(token.Lexeme)
+            };
+        }
+        else if (token.Type is TokenType.String) {
+            return new StringExpression() {
+                Value = token.Lexeme
+            };
+        }
+        else if (token.Type is TokenType.True or TokenType.False) {
+            return new BoolExpression() {
+                Value = bool.Parse(token.Lexeme)
+            };
+        }
+        else {
+            return new BadStatement() { 
+                Error = $"Unknown primary expression {token.Type}"
+            };
+        }
+    }
+
+    private Statement ParseUnary() {
+        while (Match(TokenType.Not)) {
+            var op = CurrentToken();
+            Advance();
+
+            var right = ParseUnary();
+
+            return new UnaryExpression() {
+                Right = right,
+                Op = op
+            };
+        }
+
+        return ParsePrimary();
+    }
+
+    private Statement ParseFactor() {
+        var left = ParseUnary();
+        Advance();
+
+        while (Match(TokenType.Star) || Match(TokenType.Divide) || Match(TokenType.Modulo)) {
+            var op = CurrentToken();
+            Advance();
+
+            var right = ParseFactor();
+
+            return new BinaryExpression() {
+                Left = left,
+                Op = op,
+                Right = right
+            };
+        }
+
+        return left;
+    }
+
+    private Statement ParseTerm() {
+        var left = ParseFactor();
+
+        while (Match(TokenType.Plus) || Match(TokenType.Minus)) {
+            var op = CurrentToken();
+            Advance();
+
+            var right = ParseTerm();
+            return new BinaryExpression() {
+                Left = left,
+                Op = op,
+                Right = right
+            };
+        }
+
+        return left;
+    }
+
+    private Statement ParseRelational() {
+        var left = ParseTerm();
+
+        while (Match(TokenType.LessThan) || Match(TokenType.GreaterThan) || 
+            Match(TokenType.GreaterThanEquals) || Match(TokenType.LessThanEquals)) {
+            var op = CurrentToken();
+            Advance();
+
+            var right = ParseRelational();
+            return new BinaryExpression() {
+                Left = left,
+                Op = op,
+                Right = right
+            };
+        }
+
+        return left;
+    }
+
+    private Statement ParseEquality() {
+        var left = ParseRelational();
+
+        while (Match(TokenType.Equals) || Match(TokenType.NotEquals)) {
+            var op = CurrentToken();
+            Advance();
+
+            var right = ParseEquality();
+            return new BinaryExpression() {
+                Left = left,
+                Op = op,
+                Right = right
+            };
+        }
+
+        return left;
+    }
+
+    private Statement ParseLogicalAnd() {
+        var left = ParseEquality();
+
+        while (Match(TokenType.And)) {
+            var op = CurrentToken();
+            Advance();
+
+            var right = ParseLogicalAnd();
+            return new BinaryExpression() {
+                Left = left,
+                Op = op,
+                Right = right
+            };
+        }
+
+        return left;
+    }
+
+    private Statement ParseLogicalOr() {
+        var left = ParseLogicalAnd();
+
+        while (Match(TokenType.Or)) {
+            var op = CurrentToken();
+            Advance();
+
+            var right = ParseLogicalOr();
+            return new BinaryExpression() {
+                Left = left,
+                Op = op,
+                Right = right
+            };
+        }
+
+        return left;
+    }
+
+    private Statement ParseExpression() {
+        return ParseLogicalOr();
+    }
+
+    private Statement ParseWhere() {
+        var isWhere = Expect(TokenType.Where);
+        if (!isWhere) return Error();
+
+        var condition = ParseExpression();
+
+        return new WhereClause() {
+            Condition = condition
+        };
+    }
+
     private Statement ParseInsertInto() {
         var isInsert = Expect(TokenType.Insert);
         if (!isInsert) return Error();
@@ -298,10 +495,6 @@ internal sealed class Parser {
 
             columns.Add(columnName.Lexeme);
         } while (Match(TokenType.Comma));
-        
-        // Expect(TokenType.RightParen)
-        //    .Then(TokenType.Values)
-        //    .Then(TokenType.LeftParen)
 
         var isRightParen =  Expect(TokenType.RightParen);
         if (!isRightParen) return Error();

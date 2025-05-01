@@ -39,12 +39,15 @@ internal sealed class SqlEngine {
             _ when stmt is CreateDatabaseStatement x => ExecCreateDatabase(x),
             _ when stmt is DropDatabaseStatement x => ExecDropDatabase(x),
             _ when stmt is InsertIntoStatement x => ExecInsertInto(x),
-            _ when stmt is SelectStatement x => ExecSelect(x),
+            _ when stmt is SelectClause x => ExecSelect(x),
             _ => controller.UnknownQuery()
         };
     }
 
-    private QueryResult ExecSelect(SelectStatement select) {
+    private QueryResult ExecSelect(SelectClause select) {
+        var err = controller.CheckDatabase();
+        if (!err.IsSuccess) return err;
+
         var table = controller.GetTable(select.TableName);
         if (table is null) return controller.TableNotFound(select.TableName);
 
@@ -173,6 +176,13 @@ internal sealed class SqlEngine {
 
         var existingTable = controller.GetTable(createTable.TableName);
         if (existingTable is not null) return controller.TableAlreadyExists(createTable.TableName);
+
+        var columnSet = new HashSet<string>();
+        foreach (var column in createTable.Columns) {
+            if (!columnSet.Add(column.ColumnName)) {
+                return QueryResult.Err("Duplicate column names in table.");
+            }
+        }
 
         var table = new SqlTable() {
             Name = createTable.TableName,

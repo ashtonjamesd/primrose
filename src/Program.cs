@@ -10,7 +10,7 @@ internal class Program {
         Console.WriteLine("Database connected.\n");
 
         //
-            db.ExecuteQuery(File.ReadAllText("example/source.sql"));
+            db.ExecuteQuery(File.ReadAllText("example/test.sql"));
         //
         return;
 

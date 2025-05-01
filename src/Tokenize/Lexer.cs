@@ -29,9 +29,12 @@ internal sealed class Lexer {
         ["null"] = TokenType.Null,
         ["not"] = TokenType.Not,
         ["unique"] = TokenType.Unique,
+        ["where"] = TokenType.Where,
+        ["and"] = TokenType.And,
+        ["or"] = TokenType.Or,
     };
 
-    private readonly Dictionary<string, TokenType> Symbols = new() {
+    private readonly Dictionary<string, TokenType> SingleSymbols = new() {
         ["("] = TokenType.LeftParen,
         [")"] = TokenType.RightParen,
         [","] = TokenType.Comma,
@@ -39,6 +42,21 @@ internal sealed class Lexer {
         ["\'"] = TokenType.Quote,
         ["*"] = TokenType.Star,
         ["-"] = TokenType.Minus,
+        ["+"] = TokenType.Plus,
+        ["/"] = TokenType.Divide,
+        ["%"] = TokenType.Modulo,
+        ["="] = TokenType.Equals,
+        [">"] = TokenType.GreaterThan,
+        ["<"] = TokenType.LessThan,
+        ["&"] = TokenType.Ampersand,
+        ["|"] = TokenType.Pipe,
+        ["^"] = TokenType.Caret,
+    };
+
+    private readonly Dictionary<string, TokenType> DoubleSymbols = new() {
+        ["<>"] = TokenType.NotEquals,
+        [">="] = TokenType.GreaterThanEquals,
+        ["<="] = TokenType.LessThanEquals,
     };
 
     public void Print() {
@@ -140,10 +158,18 @@ internal sealed class Lexer {
     }
 
     private Token ParseSymbol() {
-        var c = CurrentChar().ToString();
+        var first = CurrentChar().ToString();
 
-        if (Symbols.TryGetValue(c, out var type)) {
-            return NewToken(c, type);
+        if (SingleSymbols.TryGetValue(first, out var firstType)) {
+            Advance();
+            var second = CurrentChar();
+            var str = (first + second).ToString();
+
+            if (DoubleSymbols.TryGetValue(first, out var secondType)) {
+                return NewToken(str, secondType);
+            }
+
+            return NewToken(first, firstType);
         }
 
         return NewToken("", TokenType.Bad);
