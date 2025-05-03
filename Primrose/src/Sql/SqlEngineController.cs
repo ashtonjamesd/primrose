@@ -4,10 +4,14 @@ using Primrose.src.Sql.Models;
 
 namespace Primrose.src.Sql;
 
-public class EngineController {
+public class SqlEngineController {
     public SqlDatabase? Database;
     public SqlUser? User;
 
+    // this flag allows the 'init.sql' to execute despite not having a logged in user
+    // it bypasses all grants and permission constraints when executing query
+    //
+    // this property should never be set to true again after 'DisableBootstrap' is called
     private bool allowBootstrap = true;
 
     public void DisableBootstrap() {
@@ -18,13 +22,37 @@ public class EngineController {
     public readonly Dictionary<string, List<SqlGrant>> Grants = [];
     private readonly AuthService auth = new();
 
+    public SqlTable? MapSqlTableFunction(string function) {
+        if (function is "current_database") {
+            return new SqlTable() {
+                IsSystemTable = false,
+                Name = "current_database",
+                Columns = [
+                    new ColumnDefinition() {
+                        ColumnName = "Name",
+                        Type = new SqlVarchar() { MaxChars = SqlConstants.VarcharMax },
+                        CanContainNull = true,
+                        IsUnique = true
+                    }
+                ],
+                Rows = [
+                    new Dictionary<string, object>() {
+                        ["Name"] = Database?.Name ?? SqlConstants.Null
+                    }
+                ]
+            };
+        }
+
+        return null;
+    }
+
     public bool HasGrant(string user, string database, string table, SqlPrivilege privilege) {
         if (allowBootstrap) return true;
         if (!Grants.TryGetValue(user, out List<SqlGrant>? value)) return false;
 
         var hasGrant = value.Any(x => {
-            return (x.Database == database || x.Database == "*") &&
-                (x.Table == table || x.Table == "*") &&
+            return (x.Database == database || x.Database is "*") &&
+                (x.Table == table || x.Table is "*") &&
                 (x.Privilege == privilege || x.Privilege == SqlPrivilege.All);
         });
 
@@ -123,5 +151,9 @@ public class EngineController {
 
     public QueryResult PermissionDenied() {
         return QueryResult.Err("You do not have permission to perform this operation.");
+    }
+
+    public QueryResult UnknownFunction(string func) {
+        return QueryResult.Err($"Unknown function '{func}'");
     }
 }

@@ -27,6 +27,7 @@ public enum TokenType {
     Login,
     With,
     Option,
+    Delete,
 
     Plus,
     Minus,

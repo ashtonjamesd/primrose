@@ -10,7 +10,7 @@ public class Program {
     static void Main() {
         Console.Clear();
 
-        var db = new SqlEngine(debug: true);
+        var db = new SqlEngine(debug: false);
         db.Setup();
 
         Console.WriteLine("primrose db\n");
@@ -35,6 +35,10 @@ public class Program {
                     case ":quit":
                     case ":q":
                         return;
+
+                    case ":c":
+                        Console.Clear();
+                        break;
 
                     case ":login":
                         if (parts.Length != 3) {

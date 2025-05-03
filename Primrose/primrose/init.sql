@@ -12,5 +12,3 @@ create table primrose_master (
     name varchar(255),
     sql  varchar(MAX)
 )
-
-select current_database()

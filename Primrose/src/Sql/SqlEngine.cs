@@ -8,7 +8,7 @@ using Primrose.src.Utils;
 namespace Primrose.src.Sql;
 
 public sealed class SqlEngine {
-    public readonly EngineController controller;
+    public readonly SqlEngineController controller;
     private readonly bool IsDebug;
 
     public SqlEngine(bool debug) {
@@ -69,11 +69,25 @@ public sealed class SqlEngine {
             _ when stmt is CreateUserStatement x => ExecCreateUser(x),
             _ when stmt is DropUserStatement x => ExecDropUser(x),
 
+            _ when stmt is DeleteStatement x => ExecDelete(x),
+
             _ when stmt is LoginUserStatement x => ExecLoginUser(x),
             
             _ when stmt is GrantStatement x => ExecGrant(x),
             _ => controller.UnknownQuery()
         };
+    }
+
+    private QueryResult ExecDelete(DeleteStatement delete) {
+        var err = controller.CheckDatabase();
+        if (!err.IsSuccess) return err;
+
+        var table = controller.GetTable(delete.From.TableName);
+        if (table is null) return controller.TableNotFound(delete.From.TableName);
+        
+        table!.Rows = [];
+
+        return QueryResult.Ok();
     }
 
     private QueryResult ExecLoginUser(LoginUserStatement loginUser) {
@@ -178,7 +192,7 @@ public sealed class SqlEngine {
                 var column = table.Columns[j];
 
                 var value = row[column.ColumnName]?.ToString();
-                Console.Write($" {(value ?? "null").PadRight(columnWidths[j])} |");
+                Console.Write($" {(value ?? SqlConstants.Null).PadRight(columnWidths[j])} |");
             }
             Console.WriteLine();
         }
@@ -191,37 +205,20 @@ public sealed class SqlEngine {
         if (!err.IsSuccess) return err;
 
         if (select.Item is FunctionStatement func) {
-            if (func.Function == "current_database") {
-                var table = new SqlTable() {
-                    Name = "current_database",
-                    Columns = [
-                        new ColumnDefinition() {
-                            ColumnName = "Name",
-                            Type = new SqlVarchar() { MaxChars = SqlConstants.VarcharMax },
-                            CanContainNull = true,
-                            IsUnique = true
-                        }
-                    ],
-                    Rows = [
-                        new Dictionary<string, object>() {
-                            ["Name"] = controller.Database?.Name ?? "NULL"
-                        }
-                    ]
-                };
+            var table = controller.MapSqlTableFunction(func.Function);
+            if (table is null) return controller.UnknownFunction(func.Function);
 
-                PrintTable(table);
-            }
-
+            PrintTable(table);
             return QueryResult.Ok();
         }
         else if (select.Item is FromClause from) {
-            var table = controller.GetTable(from.Table);
-            if (table is null) return controller.TableNotFound(from.Table);
+            var table = controller.GetTable(from.TableName);
+            if (table is null) return controller.TableNotFound(from.TableName);
 
             var hasGrant = controller.HasGrant(
                 controller.User!.Name,
                 controller.Database!.Name,
-                from.Table,
+                from.TableName,
                 SqlPrivilege.Select
             );
             if (!hasGrant) return controller.PermissionDenied();
@@ -339,6 +336,7 @@ public sealed class SqlEngine {
         var table = new SqlTable() {
             Name = createTable.TableName,
             Columns = createTable.Columns,
+            IsSystemTable = false,
             Rows = []
         };
 
@@ -422,6 +420,7 @@ public sealed class SqlEngine {
         if (!hasGrant) return controller.PermissionDenied();
 
         controller.Databases.Remove(db);
+        if (db == controller.Database) controller.Database = null;
 
         return QueryResult.Ok();
     }

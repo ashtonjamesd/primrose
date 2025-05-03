@@ -43,8 +43,15 @@ public sealed class SelectStatement : Statement {
     public required List<string> Columns { get; set; }
 }
 
+public sealed class DeleteStatement : Statement {
+    public required FromClause From { get; set; }
+    public required Statement? Condition { get; set; }
+}
+
+public sealed class LogoutUserStatement : Statement { }
+
 public sealed class FromClause : Statement {
-    public required string Table { get; set; }
+    public required string TableName { get; set; }
 }
 
 public sealed class GrantStatement : Statement {

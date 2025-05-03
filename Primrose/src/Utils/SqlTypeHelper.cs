@@ -36,7 +36,7 @@ public static class SqlTypeHelper {
             TokenType.Select,
             TokenType.Insert,
             // TokenType.Update,
-            // TokenType.Delete,
+            TokenType.Delete,
             TokenType.Create,
             // TokenType.Alter,
             TokenType.Drop,

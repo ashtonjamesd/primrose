@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Primrose.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9dab0fe6ae6d0b100a49c759b27d8f8c8111288a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a584936fd239106bde256f74dd512d94e52c5053")]
 [assembly: System.Reflection.AssemblyProductAttribute("Primrose.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Primrose.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -1,3 +1,4 @@
+using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
 using Primrose.src.Tokenize;
 using Primrose.src.Utils;
@@ -70,7 +71,13 @@ public sealed class Parser {
             PrintStatement(select.Item, depth + 2);
         }
         else if (stmt is FromClause from) {
-            Console.Write($"{from.Table}");
+            Console.Write($"{from.TableName}");
+        }
+        else if (stmt is DeleteStatement delete) {
+            Console.WriteLine("delete");
+            Console.WriteLine(new string(' ', (depth + 1) * 2) + $"from: ");
+            PrintStatement(delete.From, depth + 2);
+            if (delete.Condition is not null) PrintStatement(delete.Condition, depth + 2);
         }
         else if (stmt is WhereClause where) {
             Console.WriteLine("where");
@@ -83,8 +90,8 @@ public sealed class Parser {
         }
         else if (stmt is GrantStatement grant) {
             Console.WriteLine("grant");
-            var privs = string.Join(", ", grant.Privileges);
-            Console.Write(new string(' ', (depth + 1) * 2) + $"privileges: {privs}\n");
+            var privileges = string.Join(", ", grant.Privileges);
+            Console.Write(new string(' ', (depth + 1) * 2) + $"privileges: {privileges}\n");
             Console.Write(new string(' ', (depth + 1) * 2) + $"on: {grant.Database}.{grant.TableName}\n");
             Console.Write(new string(' ', (depth + 1) * 2) + $"to: {grant.ToUser}\n");
         }
@@ -150,6 +157,7 @@ public sealed class Parser {
             TokenType.Use => ParseUseDatabase(),
             TokenType.Insert => ParseInsertInto(),
             TokenType.Select => ParseSelect(),
+            TokenType.Delete => ParseDelete(),
             TokenType.Where => ParseWhere(),
             TokenType.Grant => ParseGrant(),
             TokenType.Login => ParseLogin(),
@@ -158,9 +166,25 @@ public sealed class Parser {
         };
     }
 
+    private Statement ParseDelete() {
+        var isDelete = Expect(TokenType.Delete);
+        if (!isDelete) return Error();
+        
+        var from = ParseFrom();
+        if (from is BadStatement) return from;
+
+        var condition = ParseWhere();
+        Advance();
+
+        return new DeleteStatement() {
+            From = (from as FromClause)!,
+            Condition = (condition is BadStatement) ? null : condition
+        };
+    }
+
     private Statement ParseLogin() {
-        var isCreate = Expect(TokenType.Login);
-        if (!isCreate) return Error();
+        var isLogin = Expect(TokenType.Login);
+        if (!isLogin) return Error();
 
         var isUser = Expect(TokenType.User);
         if (!isUser) return Error();
@@ -359,7 +383,7 @@ public sealed class Parser {
         Advance();
 
         return new FromClause() {
-            Table = tableNameToken.Lexeme
+            TableName = tableNameToken.Lexeme
         };
     }
 
@@ -374,6 +398,8 @@ public sealed class Parser {
                 Recede();
 
                 var func = ParseFunction();
+                if (func is BadStatement) return func;
+                Recede();
                 
                 return new SelectStatement() {
                     Item = func,
@@ -388,7 +414,7 @@ public sealed class Parser {
         var from = ParseFrom();
 
         return new SelectStatement() {
-            Item = from as FromClause,
+            Item = (from as FromClause)!,
             Columns = []
         };
     }
