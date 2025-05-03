@@ -13,6 +13,10 @@ public sealed class CreateTableStatement : Statement {
     public required List<ColumnDefinition> Columns { get; set; }
 }
 
+public sealed class FunctionStatement : Statement {
+    public required string Function { get; set; }
+}
+
 public sealed class WhereClause : Statement {
     public required Statement Condition { get; set; }
 }
@@ -34,9 +38,13 @@ public sealed class InsertIntoStatement : Statement {
     public required List<InsertValues> ValuesList { get; set; }
 }
 
-public sealed class SelectClause : Statement {
-    public required string TableName { get; set; }
+public sealed class SelectStatement : Statement {
+    public required Statement Item { get; set; }
     public required List<string> Columns { get; set; }
+}
+
+public sealed class FromClause : Statement {
+    public required string Table { get; set; }
 }
 
 public sealed class GrantStatement : Statement {

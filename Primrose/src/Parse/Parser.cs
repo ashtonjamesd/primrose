@@ -49,6 +49,9 @@ public sealed class Parser {
         else if (stmt is UseDatabaseStatement useDatabase) {
             Console.WriteLine($"use database {useDatabase.DatabaseName}");
         }
+        else if (stmt is FunctionStatement func) {
+            Console.WriteLine($"{func.Function}()");
+        }
         else if (stmt is InsertIntoStatement insertInto) {
             Console.WriteLine($"insert into {insertInto.TableName}");
             Console.Write(new string(' ', (depth + 1) * 2) + "columns: ");
@@ -59,11 +62,15 @@ public sealed class Parser {
                 Console.WriteLine(string.Join(", ", insertInto.ValuesList[i].Values.Select(v => v.Lexeme)));
             }
         }
-        else if (stmt is SelectClause select) {
+        else if (stmt is SelectStatement select) {
             Console.WriteLine("select");
             Console.Write(new string(' ', (depth + 1) * 2) + "columns: ");
             Console.WriteLine(string.Join(", ", select.Columns));
-            Console.WriteLine(new string(' ', (depth + 1) * 2) + $"from: {select.TableName}");
+            Console.WriteLine(new string(' ', (depth + 1) * 2) + $"from: ");
+            PrintStatement(select.Item, depth + 2);
+        }
+        else if (stmt is FromClause from) {
+            Console.Write($"{from.Table}");
         }
         else if (stmt is WhereClause where) {
             Console.WriteLine("where");
@@ -146,6 +153,7 @@ public sealed class Parser {
             TokenType.Where => ParseWhere(),
             TokenType.Grant => ParseGrant(),
             TokenType.Login => ParseLogin(),
+            TokenType.Identifier => ParseFunction(),
             _ => UnknownStatement(c.Lexeme)
         };
     }
@@ -173,6 +181,22 @@ public sealed class Parser {
         return new LoginUserStatement() {
             Name = nameToken.Lexeme,
             Password = passwordToken.Lexeme
+        };
+    }
+
+    private Statement ParseFunction() {
+        var func = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+        Advance();
+
+        var isLeftParen = Expect(TokenType.LeftParen);
+        if (!isLeftParen) return Error();
+
+        var isRightParent = Expect(TokenType.RightParen);
+        if (!isRightParent) return Error();
+
+        return new FunctionStatement() {
+            Function = func.Lexeme
         };
     }
 
@@ -326,21 +350,45 @@ public sealed class Parser {
         };
     }
 
-    private Statement ParseSelect() {
-        var isSelect = Expect(TokenType.Select);
-        if (!isSelect) return Error();
-
-        var isStar = Expect(TokenType.Star);
-        if (!isStar) return Error();
-
+    private Statement ParseFrom() {
         var isFrom = Expect(TokenType.From);
         if (!isFrom) return Error();
 
         var tableNameToken = CurrentToken();
         if (!Match(TokenType.Identifier)) return Error();
+        Advance();
 
-        return new SelectClause() {
-            TableName = tableNameToken.Lexeme,
+        return new FromClause() {
+            Table = tableNameToken.Lexeme
+        };
+    }
+
+    private Statement ParseSelect() {
+        var isSelect = Expect(TokenType.Select);
+        if (!isSelect) return Error();
+
+        if (Match(TokenType.Identifier)) {
+            Advance();
+            
+            if (Match(TokenType.LeftParen)) {
+                Recede();
+
+                var func = ParseFunction();
+                
+                return new SelectStatement() {
+                    Item = func,
+                    Columns = []
+                };
+            }
+        }
+
+        var isStar = Expect(TokenType.Star);
+        if (!isStar) return Error();
+
+        var from = ParseFrom();
+
+        return new SelectStatement() {
+            Item = from as FromClause,
             Columns = []
         };
     }

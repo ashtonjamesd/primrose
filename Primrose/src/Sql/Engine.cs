@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Security;
 using Primrose.src.Parse;
 using Primrose.src.Sql.Models;
@@ -62,7 +63,7 @@ public sealed class SqlEngine {
             _ when stmt is DropDatabaseStatement x => ExecDropDatabase(x),
             _ when stmt is UseDatabaseStatement x => ExecUseDatabase(x),
 
-            _ when stmt is SelectClause x => ExecSelect(x),
+            _ when stmt is SelectStatement x => ExecSelect(x),
             _ when stmt is InsertIntoStatement x => ExecInsertInto(x),
             
             _ when stmt is CreateUserStatement x => ExecCreateUser(x),
@@ -139,21 +140,7 @@ public sealed class SqlEngine {
         return QueryResult.Ok();
     }
 
-    private QueryResult ExecSelect(SelectClause select) {
-        var err = controller.CheckDatabase();
-        if (!err.IsSuccess) return err;
-
-        var table = controller.GetTable(select.TableName);
-        if (table is null) return controller.TableNotFound(select.TableName);
-
-        var hasGrant = controller.HasGrant(
-            controller.User!.Name,
-            controller.Database!.Name,
-            select.TableName,
-            SqlPrivilege.Select
-        );
-        if (!hasGrant) return controller.PermissionDenied();
-
+    private void PrintTable(SqlTable table) {
         const string leftWhitespaceGap = "";
         var columnWidths = table.Columns.Select((col, index) => {
             if (table.Rows.Count is 0) return col.ColumnName.Length;
@@ -197,7 +184,53 @@ public sealed class SqlEngine {
         }
 
         PrintSeparator();
-        return QueryResult.Ok();
+    }
+
+    private QueryResult ExecSelect(SelectStatement select) {
+        var err = controller.CheckDatabase();
+        if (!err.IsSuccess) return err;
+
+        if (select.Item is FunctionStatement func) {
+            if (func.Function == "current_database") {
+                var table = new SqlTable() {
+                    Name = "current_database",
+                    Columns = [
+                        new ColumnDefinition() {
+                            ColumnName = "Name",
+                            Type = new SqlVarchar() { MaxChars = SqlConstants.VarcharMax },
+                            CanContainNull = true,
+                            IsUnique = true
+                        }
+                    ],
+                    Rows = [
+                        new Dictionary<string, object>() {
+                            ["Name"] = controller.Database?.Name ?? "NULL"
+                        }
+                    ]
+                };
+
+                PrintTable(table);
+            }
+
+            return QueryResult.Ok();
+        }
+        else if (select.Item is FromClause from) {
+            var table = controller.GetTable(from.Table);
+            if (table is null) return controller.TableNotFound(from.Table);
+
+            var hasGrant = controller.HasGrant(
+                controller.User!.Name,
+                controller.Database!.Name,
+                from.Table,
+                SqlPrivilege.Select
+            );
+            if (!hasGrant) return controller.PermissionDenied();
+
+            PrintTable(table);
+            return QueryResult.Ok();
+        }
+
+        return QueryResult.Err("Invalid target for select.");
     }
 
     private QueryResult ExecInsertInto(InsertIntoStatement insertInto) {
