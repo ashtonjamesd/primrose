@@ -297,14 +297,50 @@ public sealed class SqlEngine {
             );
             if (!hasGrant) return controller.PermissionDenied();
 
+            SqlTable displayTable = table;
             if (select.Where is not null) {
-                var filteredTable = ExecWhere(select.Where, table);
-                PrintTable(filteredTable);
-                return QueryResult.Ok(filteredTable.Rows.Count);
+                displayTable = ExecWhere(select.Where, table);
             }
 
-            PrintTable(table);
-            return QueryResult.Ok(table.Rows.Count, table);
+            if (select.Columns.First() != "*") {
+                var columnsToIgnore = new List<ColumnDefinition>();
+                foreach (var col in displayTable.Columns) {
+                    if (!select.Columns.Contains(col.ColumnName)) {
+                        columnsToIgnore.Add(col);
+                    }
+                }
+
+                displayTable.Columns.RemoveAll(columnsToIgnore.Contains);
+            }
+
+            if (select.IsDistinct) {
+                if (select.Columns.First() != "*") {
+                    var distinctRows = new List<Dictionary<string, object?>>();
+
+                    foreach (var row in displayTable.Rows) {
+                        bool isDuplicate = distinctRows.Any(existingRow =>
+                            select.Columns.All(col =>
+                                Equals(existingRow[col], row[col])
+                            )
+                        );
+
+                        if (!isDuplicate) {
+                            distinctRows.Add(row);
+                        }
+                    }
+
+                    displayTable.Rows.Clear();
+                    foreach (var row in distinctRows) {
+                        displayTable.Rows.Add(row);
+                    }
+                }
+                else {
+
+                }
+            }
+
+            PrintTable(displayTable);
+            return QueryResult.Ok(displayTable.Rows.Count, table);
         }
 
         return QueryResult.Err("Invalid target for select.");

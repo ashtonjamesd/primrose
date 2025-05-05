@@ -528,23 +528,50 @@ public sealed class Parser {
                 return new SelectStatement() {
                     Item = func,
                     Where = null,
-                    Columns = []
+                    Columns = [],
+                    IsDistinct = false
                 };
             }
         }
 
-        var isStar = Expect(TokenType.Star);
-        if (!isStar) return Error();
+        bool isDistinct = false;
+        if (Match(TokenType.Distinct)) {
+            Advance();
+            isDistinct = true;
+        }
+
+        List<string> columns = [];
+        if (Match(TokenType.Star)) {
+            Advance();
+            columns.Add("*");
+        }
+        else {
+            Recede();
+            if (!isDistinct) Recede();
+
+            do {
+                Advance();
+
+                var columnNameToken = CurrentToken();
+                if (!Match(TokenType.Identifier)) return Error();
+                Advance();
+
+                columns.Add(columnNameToken.Lexeme);
+
+            } while (Match(TokenType.Comma));
+        }
 
         var from = ParseFrom();
+        if (from is BadStatement) return from;
+
         var where = ParseWhere();
-        
         if (where is WhereClause) Recede();
 
         return new SelectStatement() {
             Item = (from as FromClause)!,
             Where = (where is BadStatement) ? null : where as WhereClause,
-            Columns = []
+            Columns = columns,
+            IsDistinct = isDistinct,
         };
     }
 

@@ -52,6 +52,7 @@ public sealed class Lexer {
         ["column"] = TokenType.Column,
         ["rename"] = TokenType.Rename,
         ["default"] = TokenType.Default,
+        ["distinct"] = TokenType.Distinct,
     };
 
     private readonly Dictionary<string, TokenType> SingleSymbols = new() {

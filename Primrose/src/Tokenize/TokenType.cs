@@ -37,6 +37,7 @@ public enum TokenType {
     Logout,
     Rename,
     Default,
+    Distinct,
 
     Plus,
     Minus,
