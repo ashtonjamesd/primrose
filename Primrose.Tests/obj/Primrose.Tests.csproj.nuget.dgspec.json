@@ -33,8 +33,8 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "C:\\Users\\rxgqq\\projects\\primrose\\Primrose\\primrose.csproj": {
-                "projectPath": "C:\\Users\\rxgqq\\projects\\primrose\\Primrose\\primrose.csproj"
+              "C:\\Users\\rxgqq\\projects\\primrose\\Primrose\\Primrose.csproj": {
+                "projectPath": "C:\\Users\\rxgqq\\projects\\primrose\\Primrose\\Primrose.csproj"
               }
             }
           }
@@ -91,12 +91,12 @@
         }
       }
     },
-    "C:\\Users\\rxgqq\\projects\\primrose\\Primrose\\primrose.csproj": {
+    "C:\\Users\\rxgqq\\projects\\primrose\\Primrose\\Primrose.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\rxgqq\\projects\\primrose\\Primrose\\primrose.csproj",
-        "projectName": "primrose",
-        "projectPath": "C:\\Users\\rxgqq\\projects\\primrose\\Primrose\\primrose.csproj",
+        "projectUniqueName": "C:\\Users\\rxgqq\\projects\\primrose\\Primrose\\Primrose.csproj",
+        "projectName": "Primrose",
+        "projectPath": "C:\\Users\\rxgqq\\projects\\primrose\\Primrose\\Primrose.csproj",
         "packagesPath": "C:\\Users\\rxgqq\\.nuget\\packages\\",
         "outputPath": "C:\\Users\\rxgqq\\projects\\primrose\\Primrose\\obj\\",
         "projectStyle": "PackageReference",

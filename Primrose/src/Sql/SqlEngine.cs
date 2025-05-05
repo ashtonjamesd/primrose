@@ -1,3 +1,4 @@
+using System.Data;
 using System.Runtime.CompilerServices;
 using Primrose.src.Parse;
 using Primrose.src.Sql.Models;
@@ -10,7 +11,7 @@ public sealed class SqlEngine {
     public readonly SqlEngineController controller;
     private readonly bool IsDebug;
 
-    public SqlEngine(bool debug) {
+    public SqlEngine(bool debug = false) {
         controller = new();
         IsDebug = debug;
     }
@@ -35,7 +36,7 @@ public sealed class SqlEngine {
         controller.DisableBootstrap();
     }
 
-    public void ExecuteQuery(string query) {
+    public QueryResult ExecuteQuery(string query) {
         var lexer = new Lexer(query);
         var tokens = lexer.Tokenize();
 
@@ -46,13 +47,17 @@ public sealed class SqlEngine {
 
         if (IsDebug) parser.Print();
 
+        var result = QueryResult.Ok();
         foreach (var stmt in ast.Program) {
-            var result = ExecStatement(stmt);
+            result = ExecStatement(stmt);
 
             if (!result.IsSuccess) {
                 Console.WriteLine($"{result.Message}\n");
             }
         }
+
+        Console.WriteLine($"\nQuery Completed.\n  Rows Affected: {result.RowsAffected}\n");
+        return result;
     }
 
     private QueryResult ExecStatement(Statement stmt) {
@@ -295,11 +300,11 @@ public sealed class SqlEngine {
             if (select.Where is not null) {
                 var filteredTable = ExecWhere(select.Where, table);
                 PrintTable(filteredTable);
-                return QueryResult.Ok();
+                return QueryResult.Ok(filteredTable.Rows.Count);
             }
 
             PrintTable(table);
-            return QueryResult.Ok();
+            return QueryResult.Ok(table.Rows.Count, table);
         }
 
         return QueryResult.Err("Invalid target for select.");
@@ -378,14 +383,11 @@ public sealed class SqlEngine {
         if (!hasGrant) return controller.PermissionDenied();
 
         foreach (var column in insertInto.ColumnNames) {
-            var foundColumn = table.Columns
-                .FirstOrDefault(x => x.ColumnName == column);
-
-            if (foundColumn is null) {
-                return QueryResult.Err($"Column '{column}' does not exist.");
-            }
+            var foundColumn = controller.GetColumn(table, column);
+            if (foundColumn is null) return controller.ColumnNotFound(column);
         }
 
+        int rowsAffected = 0;
         foreach (var valueList in insertInto.ValuesList) {
             var row = new Dictionary<string, object?>();
 
@@ -396,7 +398,7 @@ public sealed class SqlEngine {
                 object? insertedValue;
                 if (value.Type is TokenType.Null) {
                     if (!column!.CanContainNull) {
-                        return QueryResult.Err($"Not null constraint violation: Column '{column.ColumnName}' cannot contain NULL values.");
+                        return controller.NotNullConstraintViolation(column.ColumnName);
                     }
                     insertedValue = null;
                 } 
@@ -404,7 +406,16 @@ public sealed class SqlEngine {
                     if (!SqlTypeHelper.IsTokenTypeMatch(column!.Type, value)) {
                         return controller.InvalidTypeInsertion(column.ColumnName);
                     }
-                    insertedValue = value.Lexeme;
+
+                    if (value.Type is TokenType.String) {
+                        insertedValue = value.Lexeme;
+                    } else if (value.Type is TokenType.Numeric) {
+                        insertedValue = Convert.ToInt32(value.Lexeme);
+                    } else if (value.Type is TokenType.True or TokenType.False) {
+                        insertedValue = Convert.ToBoolean(value.Lexeme);
+                    } else {
+                        insertedValue = value.Lexeme;
+                    }
                 }
                 
                 if (column.IsUnique && insertedValue != null) {
@@ -413,7 +424,7 @@ public sealed class SqlEngine {
                     );
 
                     if (conflict) {
-                        return QueryResult.Err($"Unique constraint violation: value '{insertedValue}' already exists for column '{column.ColumnName}'.");
+                        return controller.UniqueConstraintViolation(insertedValue, column.ColumnName);
                     }
                 }
 
@@ -423,16 +434,18 @@ public sealed class SqlEngine {
             foreach (var tableColumn in table.Columns) {
                 if (!row.ContainsKey(tableColumn.ColumnName)) {
                     if (!tableColumn.CanContainNull) {
-                        return QueryResult.Err($"Not null constraint violation: Column '{tableColumn.ColumnName}' cannot contain NULL values.");
+                        return controller.NotNullConstraintViolation(tableColumn.ColumnName);
                     }
+
                     row[tableColumn.ColumnName] = null;
                 }
             }
 
             table.Rows.Add(row);
+            rowsAffected++;
         }
 
-        return QueryResult.Ok();
+        return QueryResult.Ok(rowsAffected, table);
     }
 
     private QueryResult ExecCreateTable(CreateTableStatement createTable) {
@@ -442,10 +455,8 @@ public sealed class SqlEngine {
         var existingTable = controller.GetTable(createTable.TableName);
         if (existingTable is not null) return controller.TableAlreadyExists(createTable.TableName);
 
-        var hasGrant = controller.HasGrant(
+        var hasGrant = controller.HasNonObjectGrant(
             controller.User!.Name,
-            controller.Database!.Name,
-            createTable.TableName,
             SqlPrivilege.Create
         );
         if (!hasGrant) return controller.PermissionDenied();
@@ -516,6 +527,14 @@ public sealed class SqlEngine {
     private QueryResult ExecCreateDatabase(CreateDatabaseStatement createDatabase) {
         var existingDb = controller.GetDatabase(createDatabase.DatabaseName);
         if (existingDb is not null) return controller.DatabaseAlreadyExists(createDatabase.DatabaseName);
+
+        foreach (var grant in controller.Grants) {
+            Console.WriteLine($"{grant.Key}: ");
+
+            foreach (var grantItem in grant.Value) {
+                Console.WriteLine($"  {grantItem.Database}.{grantItem.Table} {grantItem.Privilege}");
+            }
+        }
 
         var hasGrant = controller.HasNonObjectGrant(
             controller.User!.Name,

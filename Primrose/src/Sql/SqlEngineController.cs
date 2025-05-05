@@ -164,4 +164,12 @@ public class SqlEngineController {
     public QueryResult ColumnNotFound(string column) {
         return QueryResult.Err($"Column '{column}' does not exist.");
     }
+
+    public QueryResult NotNullConstraintViolation(string column) {
+        return QueryResult.Err($"Not null constraint violation: Column '{column}' cannot contain NULL values.");
+    }
+
+    public QueryResult UniqueConstraintViolation(object value, string column) {
+        return QueryResult.Err($"Unique constraint violation: value '{value}' already exists for column '{column}'.");
+    }
 }

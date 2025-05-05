@@ -9,7 +9,7 @@ public class Program {
     static void Main() {
         Console.Clear();
 
-        var db = new SqlEngine(debug: true)
+        var db = new SqlEngine(debug: false)
             .Setup();
 
         Console.WriteLine("primrose db\n");
@@ -23,7 +23,10 @@ public class Program {
 
         Console.WriteLine();
         while (true) {
-            Console.Write($"#{db.GetUser()?.Name ?? "none"} > ");
+            var username = db.GetUser()?.Name ?? "none";
+            var database = db.controller.Database?.Name ?? "?";
+
+            Console.Write($"#{username}/{database} > ");
             var query = Console.ReadLine();
             
             if (string.IsNullOrWhiteSpace(query)) continue;

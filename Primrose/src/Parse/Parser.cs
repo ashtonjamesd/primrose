@@ -1,5 +1,4 @@
 using System.Data;
-using System.Runtime.CompilerServices;
 using Primrose.src.Tokenize;
 using Primrose.src.Utils;
 
@@ -303,6 +302,9 @@ public sealed class Parser {
                     privileges.Add($"{privilege.Lexeme} {userToken.Lexeme}");
                     Advance();
                 }
+                else {
+                    privileges.Add(privilege.Lexeme);
+                }
             } 
             else {
                 privileges.Add(privilege.Lexeme);
@@ -603,8 +605,6 @@ public sealed class Parser {
 
         var isRightParen =  Expect(TokenType.RightParen);
         if (!isRightParen) return Error();
-
-        Recede();
 
         return new CreateTableStatement() {
             TableName = tableNameToken.Lexeme,
