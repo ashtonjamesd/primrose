@@ -652,20 +652,24 @@ public sealed class Parser {
 
         var type = SqlMapper.MapTokenToType(columnType);
         if (type is SqlVarchar sqlVarchar) {
-            var isVarcharLeftParen = Expect(TokenType.LeftParen);
-            if (!isVarcharLeftParen) return Error();
+            if (Match(TokenType.LeftParen)) {
+                Advance();
 
-            var count = CurrentToken();
-            if (!Match(TokenType.Numeric) && !Match(TokenType.Identifier)) return Error();
-            if (Match(TokenType.Identifier) && count.Lexeme.ToLower() != "max") return Error();
-            Advance();
+                var count = CurrentToken();
+                if (!Match(TokenType.Numeric) && !Match(TokenType.Identifier)) return Error();
+                if (Match(TokenType.Identifier) && count.Lexeme.ToLower() != "max") return Error();
+                Advance();
 
-            sqlVarchar.MaxChars = count.Type is TokenType.Numeric 
-                ? int.Parse(count.Lexeme) 
-                : SqlConstants.VarcharMax;
+                sqlVarchar.MaxChars = count.Type is TokenType.Numeric 
+                    ? int.Parse(count.Lexeme) 
+                    : SqlConstants.VarcharMax;
 
-            var isVarcharRightParen = Expect(TokenType.RightParen);
-            if (!isVarcharRightParen) return Error();
+                var isVarcharRightParen = Expect(TokenType.RightParen);
+                if (!isVarcharRightParen) return Error();
+            }
+            else {
+                sqlVarchar.MaxChars = SqlConstants.VarcharDefault;
+            }
         }
         else if (type is SqlChar sqlChar) {
             var isCharLeftParen = Expect(TokenType.LeftParen);

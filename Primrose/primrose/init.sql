@@ -19,7 +19,7 @@ create table employees (
     first_name varchar(50),
     last_name varchar(50),
     email varchar(100),
-    department varchar(50)
+    department varchar(MAX)
 )
 
 insert into employees (id, first_name, last_name, email, department) values
@@ -43,7 +43,6 @@ insert into employees (id, first_name, last_name, email, department) values
 (18, 'Greg', 'Garcia', 'greg.g@example.com', 'Engineering'),
 (19, 'Sophia', 'Martinez', 's.martinez@example.com', 'IT'),
 (20, 'Kevin', 'Robinson', 'kevin.r@example.com', 'HR'),
--- Duplicates start here (same data, different IDs)
 (21, 'John', 'Doe', 'john.doe@example.com', 'Engineering'),
 (22, 'Emily', 'Davis', 'emily.d@example.com', 'Finance'),
 (23, 'Grace', 'Lewis', 'grace.l@example.com', 'Sales'),
@@ -53,6 +52,10 @@ insert into employees (id, first_name, last_name, email, department) values
 (27, 'Zoe', 'Allen', 'zoe.a@example.com', 'HR'), -- duplicate
 (28, 'Nathan', 'Young', 'nathan.y@example.com', 'Sales'),
 (29, 'Lily', 'King', 'lily.k@example.com', 'Marketing'),
+(29, 'Lily', 'King', 'lily.k@example.com', 'Marketing'),
+(29, 'Lily', 'King', 'lily.k@example.com', 'Marketing'),
+(29, 'Lily', 'King', 'lily.k@example.com', 'Marketing'),
+(29, 'Lily', 'King', 'lily.k@example.com', 'Marketing'),
 (30, 'Lily', 'King', 'lily.k@example.com', 'Marketing') -- duplicate
 
-select first_name from employees where id > 10
+select distinct * from employees where email = 'lily.k@example.com'

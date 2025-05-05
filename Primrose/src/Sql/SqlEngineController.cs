@@ -9,7 +9,7 @@ public class SqlEngineController {
     public SqlUser? User;
 
     // this flag allows the 'init.sql' to execute despite not having a logged in user
-    // it bypasses all grants and permission constraints when executing query
+    // it bypasses all grants and permission constraints when executing the query
     //
     // this property should never be set to true again after 'DisableBootstrap' is called
     private bool allowBootstrap = true;
@@ -66,7 +66,7 @@ public class SqlEngineController {
         if (!Grants.TryGetValue(user, out List<SqlGrant>? value)) return false;
 
         var hasGrant = value.Any(x => {
-            return x.Privilege == privilege || x.Privilege == SqlPrivilege.All;
+            return x.Privilege == privilege || x.Privilege is SqlPrivilege.All;
         });
 
         return hasGrant;
@@ -172,5 +172,9 @@ public class SqlEngineController {
 
     public QueryResult UniqueConstraintViolation(object value, string column) {
         return QueryResult.Err($"Unique constraint violation: value '{value}' already exists for column '{column}'.");
+    }
+
+    public QueryResult VarcharLengthViolation(string column, int amount) {
+        return QueryResult.Err($"Varchar length violation: column '{column}' can only store '{amount}' character(s).");
     }
 }

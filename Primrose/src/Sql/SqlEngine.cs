@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using System.Runtime.CompilerServices;
 using Primrose.src.Parse;
 using Primrose.src.Sql.Models;
@@ -335,7 +336,22 @@ public sealed class SqlEngine {
                     }
                 }
                 else {
+                    var distinctRows = new List<Dictionary<string, object?>>();
 
+                    foreach (var row in displayTable.Rows) {
+                        bool isDuplicate = distinctRows.Any(existingRow =>
+                            row.All(kv => Equals(existingRow[kv.Key], kv.Value))
+                        );
+
+                        if (!isDuplicate) {
+                            distinctRows.Add(row);
+                        }
+                    }
+
+                    displayTable.Rows.Clear();
+                    foreach (var row in distinctRows) {
+                        displayTable.Rows.Add(row);
+                    }
                 }
             }
 
@@ -383,17 +399,42 @@ public sealed class SqlEngine {
         var right = EvaluateExpression(binary.Right, row);
 
         return binary.Op.Type switch {
-            TokenType.Equals => Convert.ToInt32(left) == Convert.ToInt32(right),
-            TokenType.NotEquals => Convert.ToInt32(left) != Convert.ToInt32(right),
-            TokenType.GreaterThan => Convert.ToInt32(left) > Convert.ToInt32(right),
-            TokenType.GreaterThanEquals => Convert.ToInt32(left) >= Convert.ToInt32(right),
-            TokenType.LessThan => Convert.ToInt32(left) < Convert.ToInt32(right),
-            TokenType.LessThanEquals => Convert.ToInt32(left) <= Convert.ToInt32(right),
+            TokenType.Equals => 
+                left is string leftStr && right is string rightStr
+                    ? leftStr == rightStr
+                    : Convert.ToInt32(left) == Convert.ToInt32(right),
+
+            TokenType.NotEquals => 
+                left is string leftStr1 && right is string rightStr1
+                    ? leftStr1 != rightStr1
+                    : Convert.ToInt32(left) != Convert.ToInt32(right),
+
+            TokenType.GreaterThan => 
+                left is string leftStr2 && right is string rightStr2
+                    ? string.Compare(leftStr2, rightStr2) > 0
+                    : Convert.ToInt32(left) > Convert.ToInt32(right),
+
+            TokenType.GreaterThanEquals => 
+                left is string leftStr3 && right is string rightStr3
+                    ? string.Compare(leftStr3, rightStr3) >= 0
+                    : Convert.ToInt32(left) >= Convert.ToInt32(right),
+
+            TokenType.LessThan => 
+                left is string leftStr4 && right is string rightStr4
+                    ? string.Compare(leftStr4, rightStr4) < 0
+                    : Convert.ToInt32(left) < Convert.ToInt32(right),
+
+            TokenType.LessThanEquals => 
+                left is string leftStr5 && right is string rightStr5
+                    ? string.Compare(leftStr5, rightStr5) <= 0
+                    : Convert.ToInt32(left) <= Convert.ToInt32(right),
+
             TokenType.And => Convert.ToBoolean(left) && Convert.ToBoolean(right),
             TokenType.Or => Convert.ToBoolean(left) || Convert.ToBoolean(right),
             _ => false
         };
     }
+
 
     private QueryResult ExecInsertInto(InsertIntoStatement insertInto) {
         var err = controller.CheckDatabase();
@@ -430,6 +471,12 @@ public sealed class SqlEngine {
             for (int i = 0; i < valueList.Values.Count; i++) {
                 var column = controller.GetColumn(table, insertInto.ColumnNames[i]);
                 var value = valueList.Values[i];
+
+                if (column?.Type is SqlVarchar sqlVarchar) {
+                    if (value.Lexeme.Length > sqlVarchar.MaxChars) {
+                        return controller.VarcharLengthViolation(column.ColumnName, sqlVarchar.MaxChars);
+                    }
+                }
 
                 object? insertedValue;
                 if (value.Type is TokenType.Null) {
