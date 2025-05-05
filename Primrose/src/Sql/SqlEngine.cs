@@ -433,6 +433,20 @@ public sealed class SqlEngine {
 
             foreach (var tableColumn in table.Columns) {
                 if (!row.ContainsKey(tableColumn.ColumnName)) {
+                    if (tableColumn.DefaultValue is not null) {
+                        if (tableColumn.DefaultValue.Type is TokenType.String) {
+                            row[tableColumn.ColumnName] = tableColumn.DefaultValue.Lexeme;
+                        } else if (tableColumn.DefaultValue.Type is TokenType.Numeric) {
+                            row[tableColumn.ColumnName] = Convert.ToInt32(tableColumn.DefaultValue.Lexeme);
+                        } else if (tableColumn.DefaultValue.Type is TokenType.True or TokenType.False) {
+                            row[tableColumn.ColumnName] = Convert.ToBoolean(tableColumn.DefaultValue.Lexeme);
+                        } else {
+                            row[tableColumn.ColumnName] = tableColumn.DefaultValue.Lexeme;
+                        }
+
+                        continue;
+                    }
+
                     if (!tableColumn.CanContainNull) {
                         return controller.NotNullConstraintViolation(tableColumn.ColumnName);
                     }
@@ -465,6 +479,12 @@ public sealed class SqlEngine {
         foreach (var column in createTable.Columns) {
             if (!columnSet.Add(column.ColumnName)) {
                 return QueryResult.Err("Duplicate column names in table.");
+            }
+
+            if (column.DefaultValue is not null) {
+                if (!SqlTypeHelper.IsTokenTypeMatch(column.Type, column.DefaultValue)) {
+                    return controller.InvalidTypeInsertion(column.ColumnName);
+                }
             }
         }
 

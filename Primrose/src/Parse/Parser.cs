@@ -606,6 +606,8 @@ public sealed class Parser {
         var isRightParen =  Expect(TokenType.RightParen);
         if (!isRightParen) return Error();
 
+        Recede();
+
         return new CreateTableStatement() {
             TableName = tableNameToken.Lexeme,
             Columns = columns
@@ -654,6 +656,7 @@ public sealed class Parser {
 
         bool canContainNull = true;
         bool isUnique = false;
+        Token? defaultValue = null;
         if (Match(TokenType.Not)) {
             Advance();
 
@@ -668,11 +671,19 @@ public sealed class Parser {
             Advance();
         }
 
+        if (Match(TokenType.Default)) {
+            Advance();
+
+            defaultValue = CurrentToken();
+            Advance();
+        }
+
         var column = new ColumnDefinition() {
             ColumnName = columnName.Lexeme,
             Type = type,
             CanContainNull = canContainNull,
-            IsUnique = isUnique
+            IsUnique = isUnique,
+            DefaultValue = defaultValue,
         };
 
         return column;

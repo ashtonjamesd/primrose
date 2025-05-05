@@ -139,6 +139,7 @@ public sealed class ColumnDefinition : Statement {
     public required SqlType Type { get; set; }
     public required bool CanContainNull { get; set; }
     public required bool IsUnique { get; set; }
+    public required Token? DefaultValue { get; set; }
 }
 
 public sealed class InsertValues {

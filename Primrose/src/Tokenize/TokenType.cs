@@ -36,6 +36,7 @@ public enum TokenType {
     Column,
     Logout,
     Rename,
+    Default,
 
     Plus,
     Minus,

@@ -10,12 +10,9 @@ with grant option
 create table primrose_master (
     type varchar(255),
     name varchar(255),
-    sql  varchar(MAX)
+    sql  varchar(MAX),
+    test boolean default false
 )
 
-create user test_user identified by 'test'
-grant create, insert, select on db.* to test_user
-login user test_user identified by 'test'
-
-create database db
-use db
+insert into primrose_master (type, name, sql)
+values ('type test', 'name test', 'sql test')

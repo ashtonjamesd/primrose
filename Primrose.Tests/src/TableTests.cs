@@ -12,14 +12,10 @@ public class TableTests {
         Assert.NotNull(db.controller.GetTable("primrose_master"));
         Assert.NotNull(db.controller.GetUser("primrose"));
 
-        db.ExecuteQuery(
-            "create table test (x int)"
-        );
+        db.ExecuteQuery("create table test (x int)");
         Assert.NotNull(db.controller.GetTable("test"));
 
-        db.ExecuteQuery(
-            "drop table test"
-        );
+        db.ExecuteQuery("drop table test");
         Assert.Null(db.controller.GetTable("test"));
     }
 }

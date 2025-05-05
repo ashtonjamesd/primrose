@@ -32,7 +32,8 @@ public class SqlEngineController {
                         ColumnName = "Name",
                         Type = new SqlVarchar() { MaxChars = SqlConstants.VarcharMax },
                         CanContainNull = true,
-                        IsUnique = true
+                        IsUnique = true,
+                        DefaultValue = null
                     }
                 ],
                 Rows = [
@@ -58,7 +59,7 @@ public class SqlEngineController {
 
         return hasGrant;
     }
-
+    
     public bool HasNonObjectGrant(string user, SqlPrivilege privilege) {
         if (allowBootstrap) return true;
 
