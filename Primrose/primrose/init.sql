@@ -13,12 +13,14 @@ create table primrose_master (
     sql  varchar(MAX)
 )
 
-create table test (x int, y int, z int)
+create table test (x varchar(MAX), y int, z int)
 
 insert into test (x, y, z)
-values (1, 1, 2), 
-(2, 32, 1), 
-(3, 5, 8)
+values ('asdasds', 1, 2), 
+('a', 32, 1), 
+('asd', 5, 8)
+
+update test
+set x = 'a', z = 23
 
 select * from test
-where x > 1 and y = 32 or y = 5

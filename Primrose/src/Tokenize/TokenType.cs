@@ -28,6 +28,8 @@ public enum TokenType {
     With,
     Option,
     Delete,
+    Update,
+    Set,
 
     Plus,
     Minus,

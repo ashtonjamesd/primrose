@@ -46,7 +46,7 @@ public sealed class SqlEngine {
         if (IsDebug) parser.Print();
 
         foreach (var stmt in ast.Program) {
-            var result = ExecStatment(stmt);
+            var result = ExecStatement(stmt);
 
             if (!result.IsSuccess) {
                 Console.WriteLine($"{result.Message}\n");
@@ -54,10 +54,11 @@ public sealed class SqlEngine {
         }
     }
 
-    private QueryResult ExecStatment(Statement stmt) {
+    private QueryResult ExecStatement(Statement stmt) {
         return stmt switch {
             _ when stmt is CreateTableStatement x => ExecCreateTable(x),
             _ when stmt is DropTableStatement x => ExecDropTable(x),
+            _ when stmt is UpdateTableStatement x => ExecUpdateTable(x),
 
             _ when stmt is CreateDatabaseStatement x => ExecCreateDatabase(x),
             _ when stmt is DropDatabaseStatement x => ExecDropDatabase(x),
@@ -329,7 +330,7 @@ public sealed class SqlEngine {
                 } 
                 else {
                     if (!SqlTypeHelper.IsTokenTypeMatch(column!.Type, value)) {
-                        return QueryResult.Err($"Invalid type insertion for '{column.ColumnName}'.");
+                        return controller.InvalidTypeInsertion(column.ColumnName);
                     }
                     insertedValue = value.Lexeme;
                 }
@@ -456,6 +457,34 @@ public sealed class SqlEngine {
         };
 
         controller.Databases.Add(db);
+
+        return QueryResult.Ok();
+    }
+
+    private QueryResult ExecUpdateTable(UpdateTableStatement updateTable) {
+        var err = controller.CheckDatabase();
+        if (!err.IsSuccess) return err;
+        
+        var table = controller.GetTable(updateTable.TableName);
+        if (table is null) return controller.TableNotFound(updateTable.TableName);
+
+        foreach (var assignment in updateTable.Assignments) {
+            var foundColumn = controller.GetColumn(table, assignment.ColumnName);
+            if (foundColumn is null) return controller.ColumnNotFound(assignment.ColumnName);
+        }
+
+        foreach (var assignment in updateTable.Assignments) {
+            var column = controller.GetColumn(table, assignment.ColumnName)!;
+
+            var isValid = SqlTypeHelper.IsTokenTypeMatch(column.Type, assignment.Value);
+            if (!isValid) return controller.InvalidTypeInsertion(column.ColumnName);
+        }
+
+        foreach (var assignment in updateTable.Assignments) {
+            foreach (var row in table.Rows) {
+                row[assignment.ColumnName] = assignment.Value.Lexeme;
+            }
+        }
 
         return QueryResult.Ok();
     }

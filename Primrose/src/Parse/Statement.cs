@@ -25,6 +25,17 @@ public sealed class CreateDatabaseStatement : Statement {
     public required string DatabaseName { get; set; }
 }
 
+public sealed class UpdateTableStatement : Statement {
+    public required string TableName { get; set; }
+    public required List<AssignmentExpression> Assignments { get; set; }
+    public required WhereClause? Where { get; set; }
+}
+
+public sealed class AssignmentExpression : Statement {
+    public required string ColumnName { get; set; }
+    public required Token Value { get; set; }
+}
+
 public sealed class DropDatabaseStatement : Statement {
     public required string DatabaseName { get; set; }
 }

@@ -156,4 +156,12 @@ public class SqlEngineController {
     public QueryResult UnknownFunction(string func) {
         return QueryResult.Err($"Unknown function '{func}'");
     }
+    
+    public QueryResult InvalidTypeInsertion(string column) {
+        return QueryResult.Err($"Invalid type insertion for '{column}'.");
+    }
+
+    public QueryResult ColumnNotFound(string column) {
+        return QueryResult.Err($"Column '{column}' does not exist.");
+    }
 }

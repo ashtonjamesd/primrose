@@ -1,3 +1,4 @@
+using System.Data;
 using Primrose.src.Tokenize;
 using Primrose.src.Utils;
 
@@ -50,6 +51,21 @@ public sealed class Parser {
         }
         else if (stmt is FunctionStatement func) {
             Console.WriteLine($"{func.Function}()");
+        }
+        else if (stmt is AssignmentExpression assign) {
+            Console.WriteLine($"{assign.ColumnName} = {assign.Value.Lexeme}");
+        }
+        else if (stmt is UpdateTableStatement updateTable) {
+            Console.WriteLine($"update {updateTable.TableName}");
+            Console.Write(new string(' ', (depth + 1) * 2) + "set: \n");
+
+            foreach (var assignment in updateTable.Assignments) {
+                PrintStatement(assignment, depth + 2);
+            }
+
+            if (updateTable.Where is not null) {
+                PrintStatement(updateTable.Where, depth + 2);
+            }
         }
         else if (stmt is InsertIntoStatement insertInto) {
             Console.WriteLine($"insert into {insertInto.TableName}");
@@ -161,6 +177,7 @@ public sealed class Parser {
             TokenType.Where => ParseWhere(),
             TokenType.Grant => ParseGrant(),
             TokenType.Login => ParseLogin(),
+            TokenType.Update => ParseUpdate(),
             TokenType.Identifier => ParseFunction(),
             _ => UnknownStatement(c.Lexeme)
         };
@@ -791,6 +808,51 @@ public sealed class Parser {
             TableName = tableNameToken.Lexeme,
             ColumnNames = columns,
             ValuesList = insertValuesList
+        };
+    }
+
+    private Statement ParseUpdate() {
+        var isUpdate = Expect(TokenType.Update);
+        if (!isUpdate) return Error();
+
+        var tableNameToken = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+        Advance();
+
+        var isSet = Expect(TokenType.Set);
+        if (!isSet) return Error();
+
+        List<AssignmentExpression> assignments = [];
+        Current--;
+        do {
+            Advance();
+
+            var item = CurrentToken();
+            if (!Match(TokenType.Identifier)) return Error();
+            Advance();
+
+            var isEquals = Expect(TokenType.Equals);
+            if (!isEquals) return Error();
+
+            var value = CurrentToken();
+            if (!SqlTypeHelper.IsValidTypeToken(value)) return Error();
+            Advance();
+
+            var assignment = new AssignmentExpression() {
+                ColumnName = item.Lexeme,
+                Value = value
+            };
+
+            assignments.Add(assignment);
+
+        } while (Match(TokenType.Comma));
+
+        var where = ParseWhere();
+
+        return new UpdateTableStatement() {
+            TableName = tableNameToken.Lexeme,
+            Assignments = assignments,
+            Where = (where is BadStatement) ? null : where as WhereClause
         };
     }
 
