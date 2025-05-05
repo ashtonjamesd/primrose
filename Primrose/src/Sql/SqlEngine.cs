@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Primrose.src.Parse;
 using Primrose.src.Sql.Models;
 using Primrose.src.Tokenize;
@@ -59,6 +60,9 @@ public sealed class SqlEngine {
             _ when stmt is CreateTableStatement x => ExecCreateTable(x),
             _ when stmt is DropTableStatement x => ExecDropTable(x),
             _ when stmt is UpdateTableStatement x => ExecUpdateTable(x),
+            _ when stmt is AlterTableAddColumnStatement x => ExecAlterTableAddColumn(x),
+            _ when stmt is AlterTableDropColumnStatement x => ExecAlterTableDropColumn(x),
+            _ when stmt is AlterTableRenameColumnStatement x => ExecAlterTableRenameColumn(x),
 
             _ when stmt is CreateDatabaseStatement x => ExecCreateDatabase(x),
             _ when stmt is DropDatabaseStatement x => ExecDropDatabase(x),
@@ -77,6 +81,60 @@ public sealed class SqlEngine {
             _ when stmt is GrantStatement x => ExecGrant(x),
             _ => controller.UnknownQuery()
         };
+    }
+
+    private QueryResult ExecAlterTableAddColumn(AlterTableAddColumnStatement addColumn) {
+        var err = controller.CheckDatabase();
+        if (!err.IsSuccess) return err;
+
+        var table = controller.GetTable(addColumn.TableName);
+        if (table is null) return controller.TableNotFound(addColumn.TableName);
+
+        table.Columns.Add(addColumn.Column);
+
+        foreach (var row in table.Rows) {
+            row[addColumn.Column.ColumnName] = null;
+        }
+
+        return QueryResult.Ok();
+    }
+
+    private QueryResult ExecAlterTableRenameColumn(AlterTableRenameColumnStatement renameColumn) {
+        var err = controller.CheckDatabase();
+        if (!err.IsSuccess) return err;
+
+        var table = controller.GetTable(renameColumn.TableName);
+        if (table is null) return controller.TableNotFound(renameColumn.TableName);
+
+        var column = controller.GetColumn(table, renameColumn.Column);
+        if (column is null) return controller.ColumnNotFound(renameColumn.Column);
+
+        column.ColumnName = renameColumn.To;
+
+        foreach (var row in table.Rows) {
+            row[renameColumn.To] = row[renameColumn.Column];
+            row[renameColumn.Column] = null;
+        }
+
+        return QueryResult.Ok();
+    }
+
+    private QueryResult ExecAlterTableDropColumn(AlterTableDropColumnStatement addColumn) {
+        var err = controller.CheckDatabase();
+        if (!err.IsSuccess) return err;
+
+        var table = controller.GetTable(addColumn.TableName);
+        if (table is null) return controller.TableNotFound(addColumn.TableName);
+
+        var column = controller.GetColumn(table, addColumn.Column);
+        if (column is null) return controller.ColumnNotFound(addColumn.Column);
+
+        table.Columns.Remove(column);
+        foreach (var row in table.Rows) {
+            row[column.ColumnName] = null;
+        }
+
+        return QueryResult.Ok();
     }
 
     private QueryResult ExecDelete(DeleteStatement delete) {
@@ -494,13 +552,22 @@ public sealed class SqlEngine {
             if (!isValid) return controller.InvalidTypeInsertion(column.ColumnName);
         }
 
-        var filteredTable = ExecWhere(updateTable.Where, table);
+        if (updateTable.Where is not null) {
+            var filteredTable = ExecWhere(updateTable.Where, table);
 
-        foreach (var row in filteredTable.Rows) {
-            if (!filteredTable.Rows.Contains(row)) continue;
+            foreach (var row in filteredTable.Rows) {
+                if (!filteredTable.Rows.Contains(row)) continue;
 
-            foreach (var assignment in updateTable.Assignments) {
-                row[assignment.ColumnName] = assignment.Value.Lexeme;
+                foreach (var assignment in updateTable.Assignments) {
+                    row[assignment.ColumnName] = assignment.Value.Lexeme;
+                }
+            }
+        }
+        else {
+            foreach (var row in table.Rows) {
+                foreach (var assignment in updateTable.Assignments) {
+                    row[assignment.ColumnName] = assignment.Value.Lexeme;
+                }
             }
         }
 

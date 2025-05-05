@@ -56,6 +56,17 @@ public sealed class Parser {
         else if (stmt is AssignmentExpression assign) {
             Console.WriteLine($"{assign.ColumnName} = {assign.Value.Lexeme}");
         }
+        else if (stmt is AlterTableAddColumnStatement addColumn) {
+            Console.WriteLine($"alter table {addColumn.TableName} add column");
+            Console.Write(new string(' ', (depth + 1) * 2));
+            Console.WriteLine($"{addColumn.Column.ColumnName}: {addColumn.Column.Type}");
+        }
+        else if (stmt is AlterTableDropColumnStatement dropColumn) {
+            Console.WriteLine($"alter table {dropColumn.TableName} drop column {dropColumn.Column}");
+        }
+        else if (stmt is AlterTableRenameColumnStatement renameColumn) {
+            Console.WriteLine($"alter table {renameColumn.TableName} rename column {renameColumn.Column} to {renameColumn.To}");
+        }
         else if (stmt is UpdateTableStatement updateTable) {
             Console.WriteLine($"update {updateTable.TableName}");
             Console.Write(new string(' ', (depth + 1) * 2) + "set: \n");
@@ -188,9 +199,20 @@ public sealed class Parser {
             TokenType.Where => ParseWhere(),
             TokenType.Grant => ParseGrant(),
             TokenType.Login => ParseLogin(),
+            TokenType.Logout => ParseLogout(),
             TokenType.Update => ParseUpdate(),
             TokenType.Identifier => ParseFunction(),
+            TokenType.Alter => ParseAlter(),
             _ => UnknownStatement(c.Lexeme)
+        };
+    }
+
+    private Statement ParseLogout() {
+        var isLogout = Expect(TokenType.Logout);
+        if (!isLogout) return Error();
+
+        return new LogoutUserStatement() {
+
         };
     }
 
@@ -202,7 +224,6 @@ public sealed class Parser {
         if (from is BadStatement) return from;
 
         var condition = ParseWhere();
-        Advance();
 
         return new DeleteStatement() {
             From = (from as FromClause)!,
@@ -333,6 +354,79 @@ public sealed class Parser {
         };
     }
 
+    private Statement ParseAlter() {
+        var next = Peek();
+
+        return next.Type switch {
+            TokenType.Table => ParseAlterTable(),
+            _ => UnknownStatement(next.Lexeme)
+        }; 
+    }
+
+    private Statement ParseAlterTable() {
+        var isAlter = Expect(TokenType.Alter);
+        if (!isAlter) return Error();
+
+        var isTable = Expect(TokenType.Table);
+        if (!isTable) return Error();
+
+        var tableNameToken = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+        Advance();
+
+        if (Match(TokenType.Add)) {
+            Advance();
+
+            var column = ParseColumnDefinition();
+
+            Recede();
+
+            return new AlterTableAddColumnStatement() {
+                TableName = tableNameToken.Lexeme,
+                Column = (column as ColumnDefinition)!
+            };
+        }
+        else if (Match(TokenType.Drop)) {
+            Advance();
+
+            var isColumn = Expect(TokenType.Column);
+            if (!isColumn) return Error();
+
+            var columnNameToken = CurrentToken();
+            if (!Match(TokenType.Identifier)) return Error();
+
+            return new AlterTableDropColumnStatement() {
+                TableName = tableNameToken.Lexeme,
+                Column = columnNameToken.Lexeme
+            };
+        }
+        else if (Match(TokenType.Rename)) {
+            Advance();
+
+            var isColumn = Expect(TokenType.Column);
+            if (!isColumn) return Error();
+
+            var oldColumnNameToken = CurrentToken();
+            if (!Match(TokenType.Identifier)) return Error();
+            Advance();
+
+            var isTo = Expect(TokenType.To);
+            if (!isTo) return Error();
+
+            var newColumnNameToken = CurrentToken();
+            if (!Match(TokenType.Identifier)) return Error();
+
+            return new AlterTableRenameColumnStatement() {
+                TableName = tableNameToken.Lexeme,
+                Column = oldColumnNameToken.Lexeme,
+                To = newColumnNameToken.Lexeme
+            };
+        }
+        else {
+            return Error();
+        }
+    }
+
     private Statement ParseCreate() {
         var next = Peek();
 
@@ -441,8 +535,9 @@ public sealed class Parser {
         if (!isStar) return Error();
 
         var from = ParseFrom();
-
         var where = ParseWhere();
+        
+        if (where is WhereClause) Recede();
 
         return new SelectStatement() {
             Item = (from as FromClause)!,
@@ -500,69 +595,10 @@ public sealed class Parser {
         do {
             Advance();
 
-            var columnName = CurrentToken();
-            if (!Match(TokenType.Identifier)) return Error();
-            Advance();
+            var column = ParseColumnDefinition();
+            if (column is BadStatement) return Error();
 
-            var columnType = CurrentToken();
-            if (!IsDataTypeToken(columnType)) return Error();
-            Advance();
-
-            var type = SqlMapper.MapTokenToType(columnType);
-            if (type is SqlVarchar sqlVarchar) {
-                var isVarcharLeftParen = Expect(TokenType.LeftParen);
-                if (!isVarcharLeftParen) return Error();
-
-                var count = CurrentToken();
-                if (!Match(TokenType.Numeric) && !Match(TokenType.Identifier)) return Error();
-                if (Match(TokenType.Identifier) && count.Lexeme.ToLower() != "max") return Error();
-                Advance();
-
-                sqlVarchar.MaxChars = count.Type is TokenType.Numeric 
-                    ? int.Parse(count.Lexeme) 
-                    : SqlConstants.VarcharMax;
-
-                var isVarcharRightParen = Expect(TokenType.RightParen);
-                if (!isVarcharRightParen) return Error();
-            }
-            else if (type is SqlChar sqlChar) {
-                var isCharLeftParen = Expect(TokenType.LeftParen);
-                if (!isCharLeftParen) return Error();
-
-                var count = CurrentToken();
-                if (!Match(TokenType.Numeric)) return Error();
-                Advance();
-
-                sqlChar.MaxChars = int.Parse(count.Lexeme);
-
-                var isCharRightParen = Expect(TokenType.RightParen);
-                if (!isCharRightParen) return Error();
-            }
-
-            bool canContainNull = true;
-            bool isUnique = false;
-            if (Match(TokenType.Not)) {
-                Advance();
-
-                var isNullToken = Expect(TokenType.Null);
-                if (!isNullToken) return Error();
-
-                canContainNull = false;
-            }
-
-            if (Match(TokenType.Unique)) {
-                isUnique = true;
-                Advance();
-            }
-
-            var column = new ColumnDefinition() {
-                ColumnName = columnName.Lexeme,
-                Type = type,
-                CanContainNull = canContainNull,
-                IsUnique = isUnique
-            };
-
-            columns.Add(column);
+            columns.Add((column as ColumnDefinition)!);
         } while (Match(TokenType.Comma));
 
         var isRightParen =  Expect(TokenType.RightParen);
@@ -574,6 +610,72 @@ public sealed class Parser {
             TableName = tableNameToken.Lexeme,
             Columns = columns
         };
+    }
+
+    private Statement ParseColumnDefinition() {
+        var columnName = CurrentToken();
+        if (!Match(TokenType.Identifier)) return Error();
+        Advance();
+
+        var columnType = CurrentToken();
+        if (!IsDataTypeToken(columnType)) return Error();
+        Advance();
+
+        var type = SqlMapper.MapTokenToType(columnType);
+        if (type is SqlVarchar sqlVarchar) {
+            var isVarcharLeftParen = Expect(TokenType.LeftParen);
+            if (!isVarcharLeftParen) return Error();
+
+            var count = CurrentToken();
+            if (!Match(TokenType.Numeric) && !Match(TokenType.Identifier)) return Error();
+            if (Match(TokenType.Identifier) && count.Lexeme.ToLower() != "max") return Error();
+            Advance();
+
+            sqlVarchar.MaxChars = count.Type is TokenType.Numeric 
+                ? int.Parse(count.Lexeme) 
+                : SqlConstants.VarcharMax;
+
+            var isVarcharRightParen = Expect(TokenType.RightParen);
+            if (!isVarcharRightParen) return Error();
+        }
+        else if (type is SqlChar sqlChar) {
+            var isCharLeftParen = Expect(TokenType.LeftParen);
+            if (!isCharLeftParen) return Error();
+
+            var count = CurrentToken();
+            if (!Match(TokenType.Numeric)) return Error();
+            Advance();
+
+            sqlChar.MaxChars = int.Parse(count.Lexeme);
+
+            var isCharRightParen = Expect(TokenType.RightParen);
+            if (!isCharRightParen) return Error();
+        }
+
+        bool canContainNull = true;
+        bool isUnique = false;
+        if (Match(TokenType.Not)) {
+            Advance();
+
+            var isNullToken = Expect(TokenType.Null);
+            if (!isNullToken) return Error();
+
+            canContainNull = false;
+        }
+
+        if (Match(TokenType.Unique)) {
+            isUnique = true;
+            Advance();
+        }
+
+        var column = new ColumnDefinition() {
+            ColumnName = columnName.Lexeme,
+            Type = type,
+            CanContainNull = canContainNull,
+            IsUnique = isUnique
+        };
+
+        return column;
     }
 
     private Statement ParsePrimary() {
@@ -853,7 +955,7 @@ public sealed class Parser {
         if (!isSet) return Error();
 
         List<AssignmentExpression> assignments = [];
-        Current--;
+        Recede();
         do {
             Advance();
 
@@ -878,7 +980,7 @@ public sealed class Parser {
         } while (Match(TokenType.Comma));
 
         var where = ParseWhere();
-        Current--;
+        Recede();
 
         return new UpdateTableStatement() {
             TableName = tableNameToken.Lexeme,

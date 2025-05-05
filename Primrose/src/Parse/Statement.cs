@@ -55,6 +55,22 @@ public sealed class SelectStatement : Statement {
     public required List<string> Columns { get; set; }
 }
 
+public sealed class AlterTableAddColumnStatement : Statement {
+    public required string TableName { get; set; }
+    public required ColumnDefinition Column { get; set; }
+}
+
+public sealed class AlterTableDropColumnStatement : Statement {
+    public required string TableName { get; set; }
+    public required string Column { get; set; }
+}
+
+public sealed class AlterTableRenameColumnStatement : Statement {
+    public required string TableName { get; set; }
+    public required string Column { get; set; }
+    public required string To { get; set; }
+}
+
 public sealed class DeleteStatement : Statement {
     public required FromClause From { get; set; }
     public required WhereClause? Where { get; set; }
@@ -118,7 +134,7 @@ public sealed class LoginUserStatement : Statement {
     public required string Password { get; set; }
 }
 
-public sealed class ColumnDefinition {
+public sealed class ColumnDefinition : Statement {
     public required string ColumnName { get; set; }
     public required SqlType Type { get; set; }
     public required bool CanContainNull { get; set; }

@@ -31,6 +31,11 @@ public enum TokenType {
     Update,
     Set,
     Is,
+    Alter,
+    Add,
+    Column,
+    Logout,
+    Rename,
 
     Plus,
     Minus,

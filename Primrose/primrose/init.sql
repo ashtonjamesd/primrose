@@ -20,9 +20,7 @@ values ('f', 1, 2),
 (null, 32, 1), 
 (null, 5, 8)
 
-update test
-set x = 'b'
-where x is not null
+alter table test
+rename column x to xxasd
 
 select * from test
-where x is null
