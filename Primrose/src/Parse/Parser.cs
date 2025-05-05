@@ -1,4 +1,5 @@
 using System.Data;
+using System.Runtime.CompilerServices;
 using Primrose.src.Tokenize;
 using Primrose.src.Utils;
 
@@ -67,6 +68,16 @@ public sealed class Parser {
                 PrintStatement(updateTable.Where, depth + 2);
             }
         }
+        else if (stmt is IsNullExpression isNull) {
+            Console.WriteLine($"is null:");
+            Console.Write(new string(' ', (depth + 1) * 2) + "Expression:\n");
+            PrintStatement(isNull.Expression, depth + 2);
+        }
+        else if (stmt is IsNotNullExpression isNotNull) {
+            Console.WriteLine($"is not null:");
+            Console.Write(new string(' ', (depth + 1) * 2) + "Expression:\n");
+            PrintStatement(isNotNull.Expression, depth + 2);
+        }
         else if (stmt is InsertIntoStatement insertInto) {
             Console.WriteLine($"insert into {insertInto.TableName}");
             Console.Write(new string(' ', (depth + 1) * 2) + "columns: ");
@@ -93,7 +104,7 @@ public sealed class Parser {
             Console.WriteLine("delete");
             Console.WriteLine(new string(' ', (depth + 1) * 2) + $"from: ");
             PrintStatement(delete.From, depth + 2);
-            if (delete.Condition is not null) PrintStatement(delete.Condition, depth + 2);
+            if (delete.Where is not null) PrintStatement(delete.Where, depth + 2);
         }
         else if (stmt is WhereClause where) {
             Console.WriteLine("where");
@@ -195,7 +206,7 @@ public sealed class Parser {
 
         return new DeleteStatement() {
             From = (from as FromClause)!,
-            Condition = (condition is BadStatement) ? null : condition
+            Where = (condition is BadStatement) ? null : condition as WhereClause
         };
     }
 
@@ -671,6 +682,25 @@ public sealed class Parser {
     private Statement ParseEquality() {
         var left = ParseRelational();
 
+        if (Match(TokenType.Is)) {
+            Advance();
+
+            bool negated = false;
+            if (Match(TokenType.Not)) {
+                Advance();
+                negated = true;
+            }
+            
+            if (!Match(TokenType.Null)) return Error();
+            Advance();
+
+            return negated ? new IsNullExpression() {
+                Expression = left,
+            } : new IsNotNullExpression() {
+                Expression = left
+            };
+        }
+
         while (Match(TokenType.Equals) || Match(TokenType.NotEquals)) {
             var op = CurrentToken();
             Advance();
@@ -848,6 +878,7 @@ public sealed class Parser {
         } while (Match(TokenType.Comma));
 
         var where = ParseWhere();
+        Current--;
 
         return new UpdateTableStatement() {
             TableName = tableNameToken.Lexeme,

@@ -57,7 +57,15 @@ public sealed class SelectStatement : Statement {
 
 public sealed class DeleteStatement : Statement {
     public required FromClause From { get; set; }
-    public required Statement? Condition { get; set; }
+    public required WhereClause? Where { get; set; }
+}
+
+public sealed class IsNullExpression : Statement {
+    public required Statement Expression { get; set; }
+}
+
+public sealed class IsNotNullExpression : Statement {
+    public required Statement Expression { get; set; }
 }
 
 public sealed class LogoutUserStatement : Statement { }

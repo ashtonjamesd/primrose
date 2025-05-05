@@ -86,7 +86,17 @@ public sealed class SqlEngine {
         var table = controller.GetTable(delete.From.TableName);
         if (table is null) return controller.TableNotFound(delete.From.TableName);
         
-        table!.Rows = [];
+        if (delete.Where is not null) {
+            var filteredTable = ExecWhere(delete.Where, table);
+
+            foreach (var row in filteredTable.Rows) {
+                if (!filteredTable.Rows.Contains(row)) continue;
+                table.Rows.Remove(row);
+            }
+        }
+        else {
+            table.Rows = [];
+        }
 
         return QueryResult.Ok();
     }
@@ -258,8 +268,13 @@ public sealed class SqlEngine {
     private static object? EvaluateExpression(Statement expr, Dictionary<string, object?> row) {
         return expr switch {
             NumericExpression literal => literal.Value,
+            StringExpression str => str.Value,
+            BoolExpression b => b.Value,
             IdentifierExpression id => row.TryGetValue(id.Value, out var value) ? value : null,
             BinaryExpression binary => EvaluateBinaryExpression(binary, row),
+            UnaryExpression unary => !Convert.ToBoolean(EvaluateExpression(unary.Right, row)),
+            IsNullExpression isNull => EvaluateExpression(isNull.Expression, row) is not null,
+            IsNotNullExpression isNotNull => EvaluateExpression(isNotNull.Expression, row) is null,
             _ => null
         };
     }
@@ -280,7 +295,6 @@ public sealed class SqlEngine {
             _ => false
         };
     }
-
 
     private QueryResult ExecInsertInto(InsertIntoStatement insertInto) {
         var err = controller.CheckDatabase();
@@ -480,8 +494,12 @@ public sealed class SqlEngine {
             if (!isValid) return controller.InvalidTypeInsertion(column.ColumnName);
         }
 
-        foreach (var assignment in updateTable.Assignments) {
-            foreach (var row in table.Rows) {
+        var filteredTable = ExecWhere(updateTable.Where, table);
+
+        foreach (var row in filteredTable.Rows) {
+            if (!filteredTable.Rows.Contains(row)) continue;
+
+            foreach (var assignment in updateTable.Assignments) {
                 row[assignment.ColumnName] = assignment.Value.Lexeme;
             }
         }

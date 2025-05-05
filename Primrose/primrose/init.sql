@@ -16,11 +16,13 @@ create table primrose_master (
 create table test (x varchar(MAX), y int, z int)
 
 insert into test (x, y, z)
-values ('asdasds', 1, 2), 
-('a', 32, 1), 
-('asd', 5, 8)
+values ('f', 1, 2), 
+(null, 32, 1), 
+(null, 5, 8)
 
 update test
-set x = 'a', z = 23
+set x = 'b'
+where x is not null
 
 select * from test
+where x is null

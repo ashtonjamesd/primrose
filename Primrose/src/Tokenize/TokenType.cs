@@ -30,6 +30,7 @@ public enum TokenType {
     Delete,
     Update,
     Set,
+    Is,
 
     Plus,
     Minus,

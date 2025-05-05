@@ -46,6 +46,7 @@ public sealed class Lexer {
         ["delete"] = TokenType.Delete,
         ["update"] = TokenType.Update,
         ["set"] = TokenType.Set,
+        ["is"] = TokenType.Is,
     };
 
     private readonly Dictionary<string, TokenType> SingleSymbols = new() {
