@@ -175,10 +175,10 @@ public sealed class Lexer {
 
         if (SingleSymbols.TryGetValue(first, out var firstType)) {
             Advance();
-            var second = CurrentChar();
-            var str = (first + second).ToString();
+            var second = CurrentChar().ToString();
+            var str = first + second;
 
-            if (DoubleSymbols.TryGetValue(first, out var secondType)) {
+            if (DoubleSymbols.TryGetValue(str, out var secondType)) {
                 return NewToken(str, secondType);
             }
 

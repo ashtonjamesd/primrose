@@ -40,6 +40,7 @@ public sealed class InsertIntoStatement : Statement {
 
 public sealed class SelectStatement : Statement {
     public required Statement Item { get; set; }
+    public required WhereClause? Where { get; set; }
     public required List<string> Columns { get; set; }
 }
 

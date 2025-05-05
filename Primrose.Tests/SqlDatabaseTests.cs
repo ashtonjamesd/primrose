@@ -23,8 +23,8 @@ public class SqlDatabaseTests {
 
     [Fact]
     public void DropDatabaseTest() {
-        var db = new SqlEngine(debug: false);
-        db.Setup();
+        var db = new SqlEngine(debug: false)
+            .Setup();
 
         Assert.NotNull(db.controller.Database);
         Assert.NotNull(db.controller.GetTable("primrose_master"));
@@ -39,8 +39,8 @@ public class SqlDatabaseTests {
 
     [Fact]
     public void CreateAndDropDatabaseTest() {
-        var db = new SqlEngine(debug: false);
-        db.Setup();
+        var db = new SqlEngine(debug: false)
+            .Setup();
 
         Assert.NotNull(db.controller.Database);
         Assert.NotNull(db.controller.GetTable("primrose_master"));

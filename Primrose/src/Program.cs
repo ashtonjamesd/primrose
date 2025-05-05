@@ -1,22 +1,21 @@
 ﻿using Primrose.src.Sql;
-using Primrose.src.Sql.Models;
 using Primrose.src.Utils;
 
 namespace Primrose.src;
 
 public class Program {
-    private static readonly TerminalHelper terminal = new();
+    private static readonly CliHelper cli = new();
 
     static void Main() {
         Console.Clear();
 
-        var db = new SqlEngine(debug: false);
-        db.Setup();
+        var db = new SqlEngine(debug: true)
+            .Setup();
 
         Console.WriteLine("primrose db\n");
         while (true) {
-            var user = terminal.GetInput("user");
-            var pass = terminal.GetInput("pass");
+            var user = cli.GetInput("user");
+            var pass = cli.GetInput("pass");
 
             var isValid = db.Login(user, pass);
             if (isValid) break;

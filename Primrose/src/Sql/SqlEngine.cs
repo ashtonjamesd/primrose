@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Security;
 using Primrose.src.Parse;
 using Primrose.src.Sql.Models;
 using Primrose.src.Tokenize;
@@ -16,10 +14,12 @@ public sealed class SqlEngine {
         IsDebug = debug;
     }
 
-    public void Setup() {
+    public SqlEngine Setup() {
         var initQuery = File.ReadAllText("C:\\Users\\rxgqq\\projects\\primrose\\Primrose\\primrose\\init.sql");
         ExecuteQuery(initQuery);
         DisableBootstrap();
+
+        return this;
     }
 
     public bool Login(string name, string pass) {
@@ -154,7 +154,7 @@ public sealed class SqlEngine {
         return QueryResult.Ok();
     }
 
-    private void PrintTable(SqlTable table) {
+    private static void PrintTable(SqlTable table) {
         const string leftWhitespaceGap = "";
         var columnWidths = table.Columns.Select((col, index) => {
             if (table.Rows.Count is 0) return col.ColumnName.Length;
@@ -223,12 +223,63 @@ public sealed class SqlEngine {
             );
             if (!hasGrant) return controller.PermissionDenied();
 
+            if (select.Where is not null) {
+                var filteredTable = ExecWhere(select.Where, table);
+                PrintTable(filteredTable);
+                return QueryResult.Ok();
+            }
+
             PrintTable(table);
             return QueryResult.Ok();
         }
 
         return QueryResult.Err("Invalid target for select.");
     }
+
+    private static SqlTable ExecWhere(WhereClause where, SqlTable table) {
+        var filteredRows = new List<Dictionary<string, object?>>();
+
+        foreach (var row in table.Rows) {
+            var result = EvaluateExpression(where.Condition, row);
+            if (Convert.ToBoolean(result)) {
+                filteredRows.Add(row);
+            }
+        }
+
+        return new SqlTable {
+            Name = table.Name,
+            Columns = table.Columns,
+            Rows = filteredRows,
+            IsSystemTable = table.IsSystemTable
+        };
+    }
+
+    private static object? EvaluateExpression(Statement expr, Dictionary<string, object?> row) {
+        return expr switch {
+            NumericExpression literal => literal.Value,
+            IdentifierExpression id => row.TryGetValue(id.Value, out var value) ? value : null,
+            BinaryExpression binary => EvaluateBinaryExpression(binary, row),
+            _ => null
+        };
+    }
+
+    private static object? EvaluateBinaryExpression(BinaryExpression binary, Dictionary<string, object?> row) {
+        var left = EvaluateExpression(binary.Left, row);
+        var right = EvaluateExpression(binary.Right, row);
+
+        return binary.Op.Type switch {
+            TokenType.Equals => Convert.ToInt32(left) == Convert.ToInt32(right),
+            TokenType.NotEquals => Convert.ToInt32(left) != Convert.ToInt32(right),
+            TokenType.GreaterThan => Convert.ToInt32(left) > Convert.ToInt32(right),
+            TokenType.GreaterThanEquals => Convert.ToInt32(left) >= Convert.ToInt32(right),
+            TokenType.LessThan => Convert.ToInt32(left) < Convert.ToInt32(right),
+            TokenType.LessThanEquals => Convert.ToInt32(left) <= Convert.ToInt32(right),
+            TokenType.And => Convert.ToBoolean(left) && Convert.ToBoolean(right),
+            TokenType.Or => Convert.ToBoolean(left) || Convert.ToBoolean(right),
+            _ => false
+        };
+    }
+
 
     private QueryResult ExecInsertInto(InsertIntoStatement insertInto) {
         var err = controller.CheckDatabase();

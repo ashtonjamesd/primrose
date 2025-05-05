@@ -1,6 +1,6 @@
 namespace Primrose.src.Utils;
 
-public sealed class TerminalHelper {
+public sealed class CliHelper {
     public string GetInput(string message) {
         while (true) {
             Console.Write($"{message}: ");

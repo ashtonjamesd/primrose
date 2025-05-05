@@ -1,13 +1,11 @@
-using System.Diagnostics.Contracts;
-using System.Runtime.CompilerServices;
 using Primrose.src.Tokenize;
 using Primrose.src.Utils;
 
 namespace Primrose.src.Parse;
 
 public sealed class Parser {
-    private readonly List<Token> Tokens;
     private readonly SqlAst Ast = new();
+    private readonly List<Token> Tokens;
 
     private int Current;
 
@@ -69,6 +67,8 @@ public sealed class Parser {
             Console.WriteLine(string.Join(", ", select.Columns));
             Console.WriteLine(new string(' ', (depth + 1) * 2) + $"from: ");
             PrintStatement(select.Item, depth + 2);
+            Console.WriteLine();
+            if (select.Where is not null) PrintStatement(select.Where, depth + 2);
         }
         else if (stmt is FromClause from) {
             Console.Write($"{from.TableName}");
@@ -403,6 +403,7 @@ public sealed class Parser {
                 
                 return new SelectStatement() {
                     Item = func,
+                    Where = null,
                     Columns = []
                 };
             }
@@ -413,8 +414,11 @@ public sealed class Parser {
 
         var from = ParseFrom();
 
+        var where = ParseWhere();
+
         return new SelectStatement() {
             Item = (from as FromClause)!,
+            Where = (where is BadStatement) ? null : where as WhereClause,
             Columns = []
         };
     }

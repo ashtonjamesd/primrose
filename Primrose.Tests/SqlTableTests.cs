@@ -5,8 +5,8 @@ namespace Primrose.Tests;
 public class SqlTableTests {
     [Fact]
     public void CreateTableTest() {
-        var db = new SqlEngine(debug: false);
-        db.Setup();
+        var db = new SqlEngine(debug: false)
+            .Setup();
 
         Assert.NotNull(db.controller.Database);
         Assert.NotNull(db.controller.GetTable("primrose_master"));
@@ -25,8 +25,8 @@ public class SqlTableTests {
 
     [Fact]
     public void DropTableTest() {
-        var db = new SqlEngine(debug: false);
-        db.Setup();
+        var db = new SqlEngine(debug: false)
+            .Setup();
 
         Assert.NotNull(db.controller.Database);
         Assert.NotNull(db.controller.GetTable("primrose_master"));
